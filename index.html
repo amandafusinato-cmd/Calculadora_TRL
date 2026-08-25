@@ -42,24 +42,32 @@
     <div class="grid-2">
       <div class="card">
         <h2>Como funciona</h2>
-        <p>A avaliação segue duas famílias de critérios, respondidas nível a nível, de TRL 1 a TRL 9:</p>
+        <p>A avaliação é feita nível a nível. Cada critério é respondido em três estados:</p>
         <ul class="pill-list">
-          <li><b>N</b> — critérios da NBR ISO 16290:2015 (obrigatórios, sim/não)</li>
-          <li><b>I</b> — critérios institucionais adicionais (% de conclusão, com tolerância)</li>
+          <li><b>Sim</b> — critério atendido</li>
+          <li><b>Parcial</b> — atendido em parte</li>
+          <li><b>Não</b> — ainda não atendido</li>
         </ul>
-        <p>Um nível é considerado <b>atingido</b> quando a média ponderada de conclusão de todos os
-        critérios do nível é maior ou igual à <b>tolerância</b> definida — e todos os níveis anteriores
-        também foram atingidos (a maturidade é cumulativa: não é possível "pular" um nível).</p>
+        <p>Critérios marcados com <b>★ mandatório</b> são essenciais: um único ★ em Parcial ou Não
+        trava o avanço para o próximo nível, independente da nota. Os demais critérios (quando o nível
+        tiver mais de um) contam para a <b>nota do nível</b>, que precisa atingir a <b>tolerância
+        mínima</b> definida pelo usuário (33% por padrão) para o nível ser considerado atingido — e
+        todos os níveis anteriores também precisam ter sido atingidos (a maturidade é cumulativa: não
+        é possível "pular" um nível).</p>
       </div>
       <div class="card">
         <h2>O que você recebe</h2>
         <p>Ao final, a calculadora apresenta:</p>
         <ul>
-          <li>O TRL atingido considerando a tolerância definida;</li>
-          <li>O TRL atingido em leitura estrita da NBR ISO 16290:2015 (sem tolerância);</li>
-          <li>O detalhamento nível a nível, com percentual de conclusão;</li>
+          <li>O TRL atingido considerando a tolerância definida, e também em leitura estrita
+          (somente critérios ★, sem tolerância);</li>
+          <li>Um gráfico de <b>qualidade da evidência</b> por nível;</li>
+          <li>Os <b>próximos passos</b> para avançar ao próximo nível;</li>
           <li>Um <b>relatório pronto</b> para impressão/PDF, com data, responsável e comentários.</li>
         </ul>
+        <p style="margin-top:14px">A calculadora também suporta mais de uma <b>régua de maturidade</b>
+        (por padrão, NASA/ISO 16290 — mas é possível trocar, por exemplo, para a API 17N) na próxima
+        etapa.</p>
       </div>
     </div>
 
