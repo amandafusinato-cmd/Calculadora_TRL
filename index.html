@@ -116,20 +116,22 @@
   <section class="screen" id="screen-avaliacao">
     <div class="level-tabs" id="level-tabs"></div>
 
-    <div class="card">
+    <div class="focus-card">
       <div class="level-header">
-        <div>
-          <h2 id="lvl-title">TRL 1</h2>
-          <p class="subtitle" id="lvl-subtitle"></p>
+        <div class="level-heading">
+          <div class="trl-chip" id="lvl-chip">TRL1</div>
+          <div>
+            <div class="level-eyebrow" id="lvl-eyebrow">Nível 1 de 9</div>
+            <h2 id="lvl-title">Princípios básicos observados</h2>
+          </div>
         </div>
-        <div class="level-score">
-          <div class="num" id="lvl-pct">0%</div>
-          <div class="lab">deste nível</div>
-        </div>
+        <span class="status-pill" id="lvl-status-pill"><span class="dot"></span><span id="lvl-status-text">—</span></span>
       </div>
-      <div class="progress-track"><div class="progress-fill" id="lvl-progress" style="width:0%"></div></div>
 
-      <div class="iso-ref">
+      <div class="segmented" id="lvl-segmented"></div>
+
+      <button type="button" class="iso-toggle" id="lvl-iso-toggle">ℹ️ Ver marco e realização de trabalho (ISO 16290)</button>
+      <div class="iso-ref" id="lvl-iso-ref" hidden>
         <b>Marco (ISO 16290):</b> <span id="lvl-marco"></span><br>
         <b>Realização de trabalho:</b> <span id="lvl-realizacao"></span>
       </div>
@@ -140,11 +142,16 @@
         <label for="lvl-comment">Comentários / evidências (opcional)</label>
         <textarea id="lvl-comment" placeholder="Observações, documentos e evidências levantadas para este nível…"></textarea>
       </div>
+
+      <div class="alert-banner" id="lvl-alert"></div>
     </div>
 
     <div class="btn-row">
       <button class="btn secondary" id="btn-prev-level">← Nível anterior</button>
-      <button class="btn" id="btn-next-level">Próximo nível →</button>
+      <div style="display:flex; gap:10px">
+        <button class="btn ghost" id="btn-peek-result">Ver TRL atual (parcial)</button>
+        <button class="btn" id="btn-next-level">Próximo nível →</button>
+      </div>
     </div>
   </section>
 

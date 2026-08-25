@@ -18,14 +18,19 @@
  *     nível em que TODOS os níveis anteriores também foram atingidos.
  * =================================================================== */
 
-const STORAGE_KEY = "trl-calculadora-state-v1";
+const STORAGE_KEY = "trl-calculadora-state-v2";
+
+/* Cada resposta é um tri-estado: "sim" | "parcial" | "nao" | null (não respondido). */
+const ANSWER_VALUES = ["sim", "parcial", "nao"];
+const ANSWER_LABELS = { sim: "Sim", parcial: "Parcial", nao: "Não" };
+const ANSWER_POINTS = { sim: 100, parcial: 50, nao: 0 };
 
 const DEFAULT_STATE = () => ({
   meta: { nome: "", resp: "", data: "" },
   groupId: 3,
   tolerance: 33,
   currentLevel: 1,
-  answers: {},   // { [level]: [bool|number, ...] }
+  answers: {},   // { [level]: ["sim"|"parcial"|"nao"|null, ...] }
   comments: {}   // { [level]: string }
 });
 
@@ -52,35 +57,66 @@ function ceilingLevel() { return getGroup(state.groupId).ceiling; }
 function ensureAnswers(level) {
   const def = TRL_LEVELS.find(l => l.level === level);
   if (!state.answers[level]) {
-    state.answers[level] = def.questions.map(q => q.type === "N" ? false : 0);
+    state.answers[level] = def.questions.map(() => null);
   }
   return state.answers[level];
 }
 
 /* ---------------------------------------------------------------
  * Cálculo
+ *
+ * Cada critério (N ou I) é respondido em três estados: Sim (100
+ * pontos), Parcial (50) ou Não (0); não respondido conta como 0.
+ *
+ * Um nível só pode ser AVANÇADO quando:
+ *   1) todos os critérios N (NBR ISO 16290, marcados como "obrigatório")
+ *      estiverem respondidos como "Sim" — um único N como "Parcial",
+ *      "Não" ou em branco BLOQUEIA o nível, independente da nota; e
+ *   2) a nota do nível (média de todos os critérios) atinge a
+ *      tolerância mínima definida em "Dados".
  * --------------------------------------------------------------- */
 function computeLevel(level) {
   const def = TRL_LEVELS.find(l => l.level === level);
   const answers = state.answers[level];
-  if (!answers) return { percent: 0, passTol: false, passIso: false, answered: false };
+  const totalCount = def.questions.length;
+  if (!answers) {
+    return { percent: 0, evidencedCount: 0, totalCount, mandatoryOk: false,
+             mandatoryIssue: "unanswered", allAnswered: false, passTol: false, passIso: false,
+             status: "blocked-unanswered", canAdvance: false };
+  }
 
-  let points = 0;
-  let nTotal = 0, nOk = 0;
+  let points = 0, evidencedCount = 0;
+  let mandatoryIssue = null; // null | "nao" | "parcial" | "unanswered"
+  let allAnswered = true;
+
   def.questions.forEach((q, i) => {
     const val = answers[i];
+    points += ANSWER_POINTS[val] || 0;
+    if (val === "sim" || val === "parcial") evidencedCount++;
+    if (val === null || val === undefined) allAnswered = false;
+
     if (q.type === "N") {
-      nTotal++;
-      if (val === true) nOk++;
-      points += val === true ? 100 : 0;
-    } else {
-      points += Number(val) || 0;
+      if (val === "nao" && mandatoryIssue !== "nao") mandatoryIssue = "nao";
+      else if (val === "parcial" && !mandatoryIssue) mandatoryIssue = "parcial";
+      else if ((val === null || val === undefined) && !mandatoryIssue) mandatoryIssue = "unanswered";
     }
   });
-  const percent = def.questions.length ? points / def.questions.length : 0;
-  const passTol = percent >= state.tolerance;
-  const passIso = nTotal === 0 ? true : nOk === nTotal;
-  return { percent, passTol, passIso, answered: true };
+
+  const percent = totalCount ? points / totalCount : 0;
+  const mandatoryOk = mandatoryIssue === null;
+  const thresholdOk = percent >= state.tolerance;
+  const passTol = mandatoryOk && thresholdOk;
+  const passIso = mandatoryOk;
+
+  let status;
+  if (mandatoryIssue === "nao") status = "blocked-nao";
+  else if (mandatoryIssue === "parcial") status = "blocked-parcial";
+  else if (mandatoryIssue === "unanswered") status = "blocked-unanswered";
+  else if (!thresholdOk || !allAnswered) status = "pending";
+  else status = "pass";
+
+  return { percent, evidencedCount, totalCount, mandatoryOk, mandatoryIssue, allAnswered,
+           passTol, passIso, status, canAdvance: status === "pass" };
 }
 
 function computeAll() {
@@ -104,6 +140,27 @@ function computeAll() {
                 cumTol, cumIso, inScope: true });
   }
   return { rows, finalTol, finalIso, ceiling };
+}
+
+function levelAlert(r) {
+  const tol = state.tolerance;
+  switch (r.status) {
+    case "blocked-nao":
+      return { type: "blocked", icon: "✖",
+        text: `Critério(s) obrigatório(s) (★) marcado(s) como Não — são essenciais para caracterizar este nível. Não é possível avançar até que sejam atendidos.` };
+    case "blocked-parcial":
+      return { type: "blocked", icon: "★",
+        text: `Critério(s) obrigatório(s) (★) ainda parcial(is) — é necessário marcá-los como Sim para caracterizar este nível.` };
+    case "blocked-unanswered":
+      return { type: "blocked", icon: "★",
+        text: `Responda todos os critérios obrigatórios (★) deste nível — eles são essenciais para caracterizar o TRL.` };
+    case "pending":
+      return { type: "pending", icon: "↻",
+        text: `Em construção — nota atual ${Math.round(r.percent)}% (${r.evidencedCount} de ${r.totalCount} critérios com evidência). É necessário atingir ao menos ${tol}% para avançar.` };
+    default:
+      return { type: "pass", icon: "✓",
+        text: `Nível atendido — ${r.evidencedCount} de ${r.totalCount} critérios com evidência, critérios obrigatórios satisfeitos.` };
+  }
 }
 
 /* ---------------------------------------------------------------
@@ -192,6 +249,14 @@ document.getElementById("btn-to-avaliacao").addEventListener("click", () => show
 /* ---------------------------------------------------------------
  * Tela 3 · Avaliação
  * --------------------------------------------------------------- */
+const STATUS_META = {
+  "pass":               { pill: "pass",    label: "Atendido" },
+  "pending":            { pill: "pending", label: "Em construção" },
+  "blocked-nao":        { pill: "blocked", label: "★ Bloqueado" },
+  "blocked-parcial":    { pill: "blocked", label: "★ Bloqueado" },
+  "blocked-unanswered": { pill: "blocked", label: "★ Bloqueado" }
+};
+
 function renderLevelTabs() {
   const ceiling = ceilingLevel();
   const wrap = document.getElementById("level-tabs");
@@ -200,13 +265,14 @@ function renderLevelTabs() {
     const inScope = def.level <= ceiling;
     const btn = document.createElement("button");
     btn.className = "level-tab" + (def.level === state.currentLevel ? " current" : "");
-    if (inScope && state.answers[def.level]) {
+    let pctLabel = "fora do grupo";
+    if (inScope) {
       const r = computeLevel(def.level);
-      btn.classList.add(r.passTol ? "pass" : "fail");
+      const meta = STATUS_META[r.status];
+      btn.classList.add(meta.pill);
+      pctLabel = Math.round(r.percent) + "%";
     }
-    btn.innerHTML = `<span class="lt-num">TRL ${def.level}</span><span class="lt-pct">${
-      inScope ? (state.answers[def.level] ? Math.round(computeLevel(def.level).percent) + "%" : "—") : "fora do grupo"
-    }</span>`;
+    btn.innerHTML = `<span class="lt-num">TRL ${def.level}</span><span class="lt-pct">${pctLabel}</span>`;
     btn.disabled = !inScope;
     btn.addEventListener("click", () => { state.currentLevel = def.level; renderLevel(def.level); });
     wrap.appendChild(btn);
@@ -219,33 +285,22 @@ function renderLevel(level) {
   ensureAnswers(level);
   saveState();
 
-  document.getElementById("lvl-title").textContent = `${def.title} — ${def.subtitle}`;
-  document.getElementById("lvl-subtitle").textContent =
-    `Grupo: ${getGroup(state.groupId).label} · Critério de aprovação: nota ≥ ${state.tolerance}% (com tolerância) ou todos os critérios ISO atendidos (leitura estrita)`;
+  document.getElementById("lvl-chip").textContent = "TRL" + level;
+  document.getElementById("lvl-eyebrow").textContent = `Nível ${level} de 9 · ${getGroup(state.groupId).label}`;
+  document.getElementById("lvl-title").textContent = def.subtitle;
   document.getElementById("lvl-marco").textContent = def.marco;
   document.getElementById("lvl-realizacao").textContent = def.realizacao;
 
   const qwrap = document.getElementById("lvl-questions");
   qwrap.innerHTML = "";
-
-  const nQs = def.questions.filter(q => q.type === "N");
-  const iQs = def.questions.filter(q => q.type === "I");
-
-  if (nQs.length) {
-    qwrap.appendChild(sectionHeader("Critérios NBR ISO 16290:2015", "n", "obrigatório"));
-    def.questions.forEach((q, i) => { if (q.type === "N") qwrap.appendChild(renderNRow(level, i, q)); });
-  }
-  if (iQs.length) {
-    qwrap.appendChild(sectionHeader("Critérios institucionais adicionais", "i", "% com tolerância"));
-    def.questions.forEach((q, i) => { if (q.type === "I") qwrap.appendChild(renderIRow(level, i, q)); });
-  }
+  def.questions.forEach((q, i) => qwrap.appendChild(renderQuestionRow(level, i, q)));
 
   document.getElementById("lvl-comment").value = state.comments[level] || "";
   document.getElementById("lvl-comment").oninput = (e) => {
     state.comments[level] = e.target.value; saveState();
   };
 
-  updateLevelScore(level);
+  updateLevelStatus(level);
   renderLevelTabs();
 
   document.getElementById("btn-prev-level").disabled = level <= 1;
@@ -253,62 +308,56 @@ function renderLevel(level) {
   document.getElementById("btn-next-level").textContent = level >= ceiling ? "Ver resultado →" : "Próximo nível →";
 }
 
-function sectionHeader(text, cls, tag) {
-  const h = document.createElement("h3");
-  h.innerHTML = `${text} <span class="chip ${cls}">${tag}</span>`;
-  return h;
-}
-
-function renderNRow(level, index, q) {
+function renderQuestionRow(level, index, q) {
   const answers = state.answers[level];
   const row = document.createElement("div");
   row.className = "q-row";
+  const mandatoryChip = q.type === "N" ? `<span class="chip-mandatory">★ mandatório</span>` : "";
   row.innerHTML = `
-    <div class="q-text">${q.text}</div>
-    <div class="q-control">
-      <span style="font-size:12.5px;color:var(--gray-500)">${answers[index] ? "Atendido" : "Não atendido"}</span>
-      <label class="switch">
-        <input type="checkbox" ${answers[index] ? "checked" : ""}>
-        <span class="track"></span>
-      </label>
-    </div>`;
-  row.querySelector("input").addEventListener("change", (e) => {
-    answers[index] = e.target.checked;
-    saveState();
-    renderLevel(level);
+    <div class="q-text">${q.text} ${mandatoryChip}</div>
+    <div class="answer-group" role="group"></div>`;
+  const group = row.querySelector(".answer-group");
+  ANSWER_VALUES.forEach(v => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `answer-btn ${v}` + (answers[index] === v ? " active" : "");
+    btn.textContent = ANSWER_LABELS[v].toUpperCase();
+    btn.addEventListener("click", () => {
+      answers[index] = answers[index] === v ? null : v; // clicar de novo desmarca
+      saveState();
+      renderLevel(level);
+    });
+    group.appendChild(btn);
   });
   return row;
 }
 
-function renderIRow(level, index, q) {
-  const answers = state.answers[level];
-  const row = document.createElement("div");
-  row.className = "q-row";
-  row.innerHTML = `
-    <div class="q-text">${q.text}</div>
-    <div class="q-control">
-      <div class="slider-control">
-        <input type="range" min="0" max="100" step="5" value="${answers[index]}">
-        <span class="pct">${answers[index]}%</span>
-      </div>
-    </div>`;
-  const input = row.querySelector("input");
-  const pctLabel = row.querySelector(".pct");
-  input.addEventListener("input", () => {
-    answers[index] = Number(input.value);
-    pctLabel.textContent = answers[index] + "%";
-    saveState();
-    updateLevelScore(level);
-    renderLevelTabs();
-  });
-  return row;
-}
-
-function updateLevelScore(level) {
+function updateLevelStatus(level) {
   const r = computeLevel(level);
-  document.getElementById("lvl-pct").textContent = Math.round(r.percent) + "%";
-  document.getElementById("lvl-progress").style.width = Math.min(100, r.percent) + "%";
+  const meta = STATUS_META[r.status];
+
+  const pill = document.getElementById("lvl-status-pill");
+  pill.className = "status-pill " + meta.pill;
+  document.getElementById("lvl-status-text").textContent = `${meta.label} · ${Math.round(r.percent)}%`;
+
+  const seg = document.getElementById("lvl-segmented");
+  const answers = state.answers[level] || [];
+  seg.innerHTML = answers.map(a => `<span class="seg ${a || "empty"}"></span>`).join("");
+
+  const alert = levelAlert(r);
+  const alertEl = document.getElementById("lvl-alert");
+  alertEl.className = "alert-banner " + alert.type;
+  alertEl.innerHTML = `<span class="alert-icon">${alert.icon}</span><span>${alert.text}</span>`;
+
+  const nextBtn = document.getElementById("btn-next-level");
+  nextBtn.disabled = !r.canAdvance;
+  nextBtn.title = r.canAdvance ? "" : "Resolva os pontos indicados no alerta abaixo para avançar.";
 }
+
+document.getElementById("lvl-iso-toggle").addEventListener("click", () => {
+  const box = document.getElementById("lvl-iso-ref");
+  box.hidden = !box.hidden;
+});
 
 document.getElementById("btn-prev-level").addEventListener("click", () => {
   if (state.currentLevel > 1) renderLevel(state.currentLevel - 1);
@@ -318,6 +367,7 @@ document.getElementById("btn-next-level").addEventListener("click", () => {
   if (state.currentLevel >= ceiling) { showScreen("resultado"); }
   else renderLevel(state.currentLevel + 1);
 });
+document.getElementById("btn-peek-result").addEventListener("click", () => showScreen("resultado"));
 
 /* ---------------------------------------------------------------
  * Tela 4 · Resultado

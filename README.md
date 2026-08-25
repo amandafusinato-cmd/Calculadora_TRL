@@ -23,24 +23,38 @@ A calculadora segue a mesma base da planilha original: **ABNT NBR ISO 16290:2015
 critérios adicionais institucionais adaptados de ROCHA, D. (2016) — *"Uma adaptação da Norma
 NBR ISO 16290:2015 aplicada em projetos do setor Aeroespacial"* (ITA).
 
-Para cada um dos 9 níveis de TRL existem dois tipos de critério:
+Para cada um dos 9 níveis de TRL existem dois tipos de critério, ambos respondidos com o
+mesmo controle de três estados — **Sim** (100 pontos) / **Parcial** (50) / **Não** (0):
 
-- **N — critérios NBR ISO 16290:2015** (obrigatórios): resposta binária (atendido / não
-  atendido), sem margem de tolerância.
-- **I — critérios institucionais adicionais**: resposta em percentual de conclusão (0 a
-  100%, passo de 5), sujeitos à tolerância definida pelo usuário.
+- **N — critérios NBR ISO 16290:2015**, marcados com o selo **★ mandatório**: são
+  essenciais para caracterizar o nível.
+- **I — critérios institucionais adicionais**: contam para a nota do nível, mas não
+  bloqueiam sozinhos o avanço.
 
-**Nota do nível** = média de todos os critérios do nível (um critério N vale 100 ou 0; um
-critério I vale o seu próprio percentual).
+**Nota do nível** = média de todos os critérios do nível (Sim/Parcial/Não → 100/50/0).
 
-Dois resultados são calculados, ambos de forma **cumulativa** (um nível só conta como
-atingido se todos os níveis anteriores também tiverem sido atingidos — a maturidade
-tecnológica não "pula" etapas):
+**Bloqueio por critério mandatório:** um nível só pode ser avançado (botão "Próximo
+nível") quando **todos** os critérios ★ mandatórios estiverem respondidos como **Sim**.
+Um único mandatório em Parcial, Não, ou ainda não respondido, trava o avanço com um
+alerta específico — independentemente da nota do nível.
 
-- **TRL com tolerância** — nível atingido quando a nota do nível é maior ou igual à
-  tolerância definida (33% por padrão, mesmo valor usado na planilha original).
+**Tolerância mínima:** além disso, a nota do nível (incluindo os critérios adicionais)
+precisa atingir a tolerância mínima definida em "Dados" (33% por padrão, mesmo valor
+usado na planilha original) para o nível ser considerado atendido.
+
+A cada nível, um alerta contextual explica o estado atual: **★ Bloqueado** (mandatório
+não atendido), **Em construção** (falta nota mínima ou respostas) ou **Atendido**. O
+botão "Ver TRL atual (parcial)" permite conferir o resultado a qualquer momento, mesmo
+com níveis incompletos.
+
+Dois resultados são calculados na tela de resultado, ambos de forma **cumulativa** (um
+nível só conta como atingido se todos os níveis anteriores também tiverem sido atingidos
+— a maturidade tecnológica não "pula" etapas):
+
+- **TRL com tolerância** — nível atingido quando os mandatórios estão satisfeitos **e**
+  a nota do nível é maior ou igual à tolerância definida.
 - **TRL ISO 16290 estrito** — nível atingido quando **todos** os critérios N (norma) do
-  nível foram marcados como atendidos, sem qualquer tolerância.
+  nível foram marcados como Sim, sem qualquer tolerância sobre os critérios adicionais.
 
 > Nota sobre fidelidade à planilha original: as colunas de apoio "TRL ESPAÇO" e "TRL ISO" da
 > planilha foram reimplementadas a partir da metodologia descrita nas abas "Início" e
