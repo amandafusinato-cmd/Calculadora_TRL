@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora de TRL</title>
+<meta name="description" content="Calculadora do Nível de Maturidade Tecnológica (TRL) baseada na ABNT NBR ISO 16290:2015, com relatório pronto para impressão.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="topbar no-print">
+  <div class="brand">
+    <span class="badge">TRL</span>
+    <div>
+      Calculadora de Maturidade Tecnológica
+      <small>ABNT NBR ISO 16290:2015</small>
+    </div>
+  </div>
+  <nav class="stepper" id="stepper">
+    <button data-screen="inicio">1. Início</button>
+    <button data-screen="dados">2. Dados</button>
+    <button data-screen="avaliacao">3. Avaliação</button>
+    <button data-screen="resultado">4. Resultado</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ===================== TELA 1 · INÍCIO ===================== -->
+  <section class="screen" id="screen-inicio">
+    <div class="hero">
+      <span class="tag">O que é TRL</span>
+      <h1>Nível de Maturidade Tecnológica (TRL)</h1>
+      <p>O Technology Readiness Level (TRL) é uma ferramenta crucial na avaliação da maturidade de uma
+      tecnologia, produto ou projeto. Ele fornece uma medida clara e objetiva do quão avançada está uma
+      solução tecnológica, permitindo que os tomadores de decisão compreendam com precisão o seu nível de
+      desenvolvimento — mantendo os projetos dentro dos parâmetros de custo, prazo e esforço estabelecidos.</p>
+      <button class="btn" id="btn-start">Iniciar avaliação →</button>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>Como funciona</h2>
+        <p>A avaliação segue duas famílias de critérios, respondidas nível a nível, de TRL 1 a TRL 9:</p>
+        <ul class="pill-list">
+          <li><b>N</b> — critérios da NBR ISO 16290:2015 (obrigatórios, sim/não)</li>
+          <li><b>I</b> — critérios institucionais adicionais (% de conclusão, com tolerância)</li>
+        </ul>
+        <p>Um nível é considerado <b>atingido</b> quando a média ponderada de conclusão de todos os
+        critérios do nível é maior ou igual à <b>tolerância</b> definida — e todos os níveis anteriores
+        também foram atingidos (a maturidade é cumulativa: não é possível "pular" um nível).</p>
+      </div>
+      <div class="card">
+        <h2>O que você recebe</h2>
+        <p>Ao final, a calculadora apresenta:</p>
+        <ul>
+          <li>O TRL atingido considerando a tolerância definida;</li>
+          <li>O TRL atingido em leitura estrita da NBR ISO 16290:2015 (sem tolerância);</li>
+          <li>O detalhamento nível a nível, com percentual de conclusão;</li>
+          <li>Um <b>relatório pronto</b> para impressão/PDF, com data, responsável e comentários.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Referência rápida — os 9 níveis</h2>
+      <table class="result-table" id="iso-ref-table"></table>
+    </div>
+  </section>
+
+  <!-- ===================== TELA 2 · DADOS ===================== -->
+  <section class="screen" id="screen-dados">
+    <div class="card">
+      <h2>Dados da tecnologia</h2>
+      <p>Breve identificação da tecnologia avaliada, do responsável pela avaliação e da data.</p>
+      <div class="grid-2">
+        <div class="field">
+          <label for="inp-nome">Nome da tecnologia</label>
+          <input type="text" id="inp-nome" placeholder="Ex.: Robô Escalador">
+        </div>
+        <div class="field">
+          <label for="inp-resp">Responsável pela avaliação</label>
+          <input type="text" id="inp-resp" placeholder="Ex.: Amanda Fusinato">
+        </div>
+      </div>
+      <div class="field" style="max-width:260px">
+        <label for="inp-data">Data da avaliação</label>
+        <input type="date" id="inp-data">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Definição do grupo</h2>
+      <p>Define até qual TRL a avaliação irá responder. A resposta é sempre cumulativa a partir do TRL 1.</p>
+      <div class="group-options" id="group-options"></div>
+    </div>
+
+    <div class="card">
+      <h2>Tolerância</h2>
+      <p>Percentual mínimo de conclusão média (critérios ISO + adicionais) para que um nível seja
+      considerado atingido. O padrão da planilha original é <b>33%</b>.</p>
+      <div class="tolerance-box">
+        <input type="range" id="inp-tolerancia" min="0" max="100" step="5" value="33">
+        <span class="tolerance-value"><span id="tolerancia-out">33</span>%</span>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn secondary" data-goto="inicio">← Voltar</button>
+      <button class="btn" id="btn-to-avaliacao">Iniciar questionário →</button>
+    </div>
+  </section>
+
+  <!-- ===================== TELA 3 · AVALIAÇÃO ===================== -->
+  <section class="screen" id="screen-avaliacao">
+    <div class="level-tabs" id="level-tabs"></div>
+
+    <div class="card">
+      <div class="level-header">
+        <div>
+          <h2 id="lvl-title">TRL 1</h2>
+          <p class="subtitle" id="lvl-subtitle"></p>
+        </div>
+        <div class="level-score">
+          <div class="num" id="lvl-pct">0%</div>
+          <div class="lab">deste nível</div>
+        </div>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="lvl-progress" style="width:0%"></div></div>
+
+      <div class="iso-ref">
+        <b>Marco (ISO 16290):</b> <span id="lvl-marco"></span><br>
+        <b>Realização de trabalho:</b> <span id="lvl-realizacao"></span>
+      </div>
+
+      <div id="lvl-questions"></div>
+
+      <div class="comment-field">
+        <label for="lvl-comment">Comentários / evidências (opcional)</label>
+        <textarea id="lvl-comment" placeholder="Observações, documentos e evidências levantadas para este nível…"></textarea>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn secondary" id="btn-prev-level">← Nível anterior</button>
+      <button class="btn" id="btn-next-level">Próximo nível →</button>
+    </div>
+  </section>
+
+  <!-- ===================== TELA 4 · RESULTADO ===================== -->
+  <section class="screen" id="screen-resultado">
+    <div class="card">
+      <h2>Status atual da tecnologia</h2>
+      <div class="info-grid">
+        <div><div class="k">Tecnologia</div><div class="v" id="res-nome">—</div></div>
+        <div><div class="k">Responsável</div><div class="v" id="res-resp">—</div></div>
+        <div><div class="k">Data</div><div class="v" id="res-data">—</div></div>
+      </div>
+
+      <div class="summary-banner">
+        <div class="trl-result-card tolerant">
+          <div class="lab">Resultado com tolerância</div>
+          <div class="big" id="res-trl-tol">TRL 0</div>
+          <div class="desc">Considera critérios ISO + adicionais, respeitando a tolerância definida</div>
+        </div>
+        <div class="trl-result-card strict">
+          <div class="lab">Resultado ISO 16290 estrito</div>
+          <div class="big" id="res-trl-iso">TRL 0</div>
+          <div class="desc">Considera somente os critérios obrigatórios da norma, sem tolerância</div>
+        </div>
+      </div>
+
+      <h3 style="margin-top:26px">Escada de maturidade</h3>
+      <div class="ladder" id="ladder"></div>
+    </div>
+
+    <div class="card">
+      <h2>Detalhamento por nível</h2>
+      <table class="result-table" id="res-table">
+        <thead>
+          <tr><th>Nível</th><th class="num">% concluído</th><th class="num">Com tolerância</th><th class="num">ISO estrito</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn secondary" data-goto="avaliacao">← Revisar respostas</button>
+      <div style="display:flex; gap:10px">
+        <button class="btn danger" id="btn-reset">Nova avaliação</button>
+        <button class="btn" id="btn-report">🖨️ Gerar relatório</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="no-print">
+  Calculadora de TRL — metodologia baseada na ABNT NBR ISO 16290:2015, com adaptação de critérios
+  institucionais (ROCHA, D. 2016). Todos os dados ficam salvos apenas no seu navegador.
+</footer>
+
+<!-- ===================== RELATÓRIO IMPRIMÍVEL ===================== -->
+<div id="report-root">
+  <div class="report-page">
+    <div class="report-head">
+      <div>
+        <h1>Relatório de Avaliação de TRL</h1>
+        <div style="color:var(--gray-500); font-size:13px">Nível de Maturidade Tecnológica — ABNT NBR ISO 16290:2015</div>
+      </div>
+      <div class="meta">
+        <div id="rep-gendate"></div>
+      </div>
+    </div>
+
+    <div class="report-section">
+      <h2>Identificação</h2>
+      <div class="info-grid">
+        <div><div class="k">Tecnologia</div><div class="v" id="rep-nome">—</div></div>
+        <div><div class="k">Responsável</div><div class="v" id="rep-resp">—</div></div>
+        <div><div class="k">Data da avaliação</div><div class="v" id="rep-data">—</div></div>
+      </div>
+    </div>
+
+    <div class="report-section">
+      <h2>Resultado</h2>
+      <div class="info-grid">
+        <div><div class="k">TRL com tolerância</div><div class="v" id="rep-trl-tol">—</div></div>
+        <div><div class="k">TRL ISO 16290 estrito</div><div class="v" id="rep-trl-iso">—</div></div>
+        <div><div class="k">Tolerância utilizada</div><div class="v" id="rep-tol-pct">—</div></div>
+      </div>
+      <div class="ladder" id="rep-ladder" style="margin-top:16px"></div>
+    </div>
+
+    <div class="report-section">
+      <h2>Detalhamento por nível</h2>
+      <table class="result-table" id="rep-table">
+        <thead>
+          <tr><th>Nível</th><th class="num">% concluído</th><th class="num">Com tolerância</th><th class="num">ISO estrito</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="report-section" id="rep-comments-section">
+      <h2>Comentários e evidências por nível</h2>
+      <div id="rep-comments"></div>
+    </div>
+
+    <div class="report-foot">
+      <span>Gerado automaticamente pela Calculadora de TRL — não substitui a avaliação documental completa.</span>
+    </div>
+    <div class="sign-line">Assinatura do responsável pela avaliação</div>
+  </div>
+</div>
+
+<script src="assets/questions.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
