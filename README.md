@@ -64,18 +64,55 @@ nível só conta como atingido se todos os níveis anteriores também tiverem si
 > que a documentação da própria planilha descreve como resultado "somente dos critérios
 > relacionados à Norma NBR ISO 16290:2015".
 
+## Múltiplas réguas de maturidade
+
+A calculadora não está presa à régua da NASA. Na tela "Dados" é possível trocar de
+metodologia — cada uma define seus próprios níveis, agrupamentos e critérios, e as
+respostas de cada uma ficam salvas separadamente (trocar de régua não apaga o que já foi
+preenchido em outra):
+
+- **NASA / ISO 16290** (padrão) — 9 níveis (TRL 1–9), com checklist detalhado de
+  critérios ★ obrigatórios (NBR ISO 16290:2015) e adicionais (ROCHA, D. 2016).
+- **API 17N (Subsea)** — 8 níveis (TRL 0–7), escala do American Petroleum Institute
+  (Recommended Practice 17N, 2009) para tecnologia subsea, amplamente usada na indústria
+  de óleo & gás. Cada nível tem uma única condição de atingimento (tratada como critério
+  ★), conforme a "API 17 Technology Readiness Level Ladder" (fonte: API RP 17N;
+  referência da escada: Astrimar) — essa régua não publica um checklist detalhado de
+  subcritérios como a ISO 16290, por isso não foram inventados critérios adicionais.
+
+Novas réguas podem ser adicionadas em `assets/questions.js`, no registro `FRAMEWORKS`,
+sem alterar a lógica de cálculo em `app.js` (que é genérica para qualquer framework).
+
+> MRL (Manufacturing Readiness Level) e IRL (Integration Readiness Level), mencionados no
+> aviso metodológico do relatório, são métricas complementares — avaliam dimensões
+> diferentes (fabricação e integração), não níveis alternativos da mesma régua de TRL —
+> por isso não entram no seletor de metodologia, mas podem ser adicionadas como uma nova
+> aba/relatório complementar se fizer sentido no futuro.
+
 ## Estrutura
 
 ```
 index.html            Telas: Início, Dados, Avaliação, Resultado + relatório imprimível
 assets/style.css       Estilo da interface e do relatório (inclui @media print)
-assets/questions.js    Banco de perguntas dos 9 níveis de TRL (critérios N e I)
+assets/questions.js    Bancos de perguntas por metodologia (NASA/ISO e API 17N) + registro FRAMEWORKS
 assets/app.js          Lógica de cálculo, navegação e geração do relatório
 ```
 
 ## Relatório
 
-Na tela de resultado, o botão **"Gerar relatório"** monta uma versão formatada (dados da
-tecnologia, resultado dos dois critérios, escada de maturidade, tabela por nível e
-comentários registrados) e aciona a impressão do navegador — o usuário pode imprimir em
-papel ou salvar como PDF diretamente pelo diálogo de impressão.
+Na tela de resultado, o botão **"Gerar relatório"** monta uma versão formatada, no estilo de
+relatórios institucionais de calculadoras de TRL (como o modelo usado pela vitrine
+tecnológica da UFRGS), e aciona a impressão do navegador — o usuário pode imprimir em papel
+ou salvar como PDF diretamente pelo diálogo de impressão. O relatório traz:
+
+- Identificação (tecnologia, responsável, data, metodologia utilizada);
+- Resultado com tolerância x leitura estrita, e a escada de maturidade;
+- **Gráfico de qualidade da evidência por nível** — uma barra por nível, colorida por
+  faixa (Forte ≥80%, Bom 60–79%, Parcial 40–59%, Fraco <40%, ou Bloqueado quando um
+  critério ★ obrigatório não foi atendido, independentemente da nota);
+- **Próximos passos** — identifica automaticamente o primeiro nível ainda não atingido na
+  cadeia cumulativa e lista o que falta: o critério obrigatório pendente como prioridade,
+  e os demais critérios não atendidos daquele nível como itens a considerar;
+- Detalhamento por nível, comentários/evidências registrados e um aviso metodológico
+  (natureza qualitativa do resultado, recomendação de complementar com MRL/IRL, e
+  limitação de escopo do documento).

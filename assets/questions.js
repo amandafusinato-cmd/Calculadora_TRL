@@ -200,3 +200,141 @@ const TRL_GROUPS = [
   { id: 3, label: "TRL 1 a 9", ceiling: 9, name: "Validação e Produção",
     description: "Demonstração em ambiente operacional, sistema qualificado e missão alcançada, possibilidade de reprodução em escala, processo de parceria e transferência tecnológica para a indústria." }
 ];
+
+/* ===================================================================
+ * Escala alternativa — API 17N (Subsea / Óleo & Gás)
+ *
+ * Fonte: API Recommended Practice 17N (2009) — "Recommended Practice
+ * for Subsea Production System Reliability, Technical Risk and
+ * Integrity Management". Escala de 8 níveis (TRL 0 a 7), adotada pela
+ * indústria offshore de óleo & gás a partir do modelo da NASA.
+ * Textos-base (estado da proposta / critério de atingimento / foco de
+ * teste) conforme a "API 17 Technology Readiness Level Ladder"
+ * (referência: Astrimar); agrupamento em 3 fases conforme as mesmas
+ * anotações da escada oficial ("Understand function and performance",
+ * "Make it Reliable as a device", "Reliability Growth & Uncertainty
+ * Reduction").
+ *
+ * Diferente da escala NASA/ISO 16290 usada nesta calculadora, a API
+ * 17N não publica um checklist detalhado de subcritérios por nível —
+ * cada nível tem uma única condição de atingimento (tratada aqui como
+ * critério ★ obrigatório). Por isso, o percentual de tolerância pouco
+ * se aplica: cada nível é Sim (100%), Parcial (50%) ou Não (0%).
+ * =================================================================== */
+const API_LEVELS = [
+  {
+    level: 0, title: "TRL 0", subtitle: "Conception (Concepção)",
+    group: 1,
+    marco: "Estado de partida: tecnologia proposta em fase de pré-pesquisa (\"pre-research technology proposed\").",
+    realizacao: "Foco de teste/análise: pesquisa experimental (1 — Experimental research). Objetivo da fase: entender função e desempenho.",
+    questions: [
+      { type: "N", text: "TRL 0 atingido — a pesquisa básica foi realizada (\"Basic Research achieved\")?" }
+    ]
+  },
+  {
+    level: 1, title: "TRL 1", subtitle: "Concept Demonstration (Demonstração de conceito)",
+    group: 1,
+    marco: "Estado de partida: tecnologia ainda não comprovada (\"unproven technology proposed\").",
+    realizacao: "Foco de teste/análise: pesquisa experimental (1 — Experimental research). Objetivo da fase: entender função e desempenho.",
+    questions: [
+      { type: "N", text: "TRL 1 atingido — a tecnologia foi demonstrada (\"Technology is demonstrated\")?" }
+    ]
+  },
+  {
+    level: 2, title: "TRL 2", subtitle: "Concept Validation (Validação de conceito)",
+    group: 1,
+    marco: "Estado de partida: tecnologia demonstrada, mas ainda não validada (\"demonstrated but unvalidated technology proposed\").",
+    realizacao: "Foco de teste/análise: bancadas de laboratório e mock-ups (2 — Lab rigs and mock ups). Objetivo da fase: entender função e desempenho.",
+    questions: [
+      { type: "N", text: "TRL 2 atingido — a tecnologia foi validada (\"Technology is validated\")?" }
+    ]
+  },
+  {
+    level: 3, title: "TRL 3", subtitle: "Prototype Qualification Testing (Qualificação do protótipo)",
+    group: 2,
+    marco: "Estado de partida: tecnologia validada, mas ainda não testada (\"validated but untested technology proposed\").",
+    realizacao: "Foco de teste/análise: teste de vida até a destruição (3 — Life test to destruction). Objetivo da fase: tornar o dispositivo confiável.",
+    questions: [
+      { type: "N", text: "TRL 3 atingido — o protótipo foi testado, com robustez e confiabilidade demonstradas (\"prototype tested, robust & reliable\")?" }
+    ]
+  },
+  {
+    level: 4, title: "TRL 4", subtitle: "Environment Qualification Testing (Qualificação em ambiente)",
+    group: 2,
+    marco: "Estado de partida: produto proposto ainda não testado em campo (\"proposed product has not been field tested\").",
+    realizacao: "Foco de teste/análise: ambientes de campo (4 — Field environments). Objetivo da fase: tornar o dispositivo confiável.",
+    questions: [
+      { type: "N", text: "TRL 4 atingido — o teste em ambiente (environment qualification testing) foi concluído?" }
+    ]
+  },
+  {
+    level: 5, title: "TRL 5", subtitle: "System Qualification Testing (Qualificação do sistema)",
+    group: 3,
+    marco: "Estado de partida: produto proposto ainda não testado em sistema (\"proposed product has not been system tested\").",
+    realizacao: "Foco de teste/análise: integração de sistema (5 — System integration). Objetivo da fase: crescimento de confiabilidade e redução de incerteza.",
+    questions: [
+      { type: "N", text: "TRL 5 atingido — os testes de sistema (system qualification testing) foram concluídos?" }
+    ]
+  },
+  {
+    level: 6, title: "TRL 6", subtitle: "Qualification of Installed System (Qualificação do sistema instalado)",
+    group: 3,
+    marco: "Estado de partida: tecnologia nunca instalada em ambiente subsea (\"technology has never been installed subsea\").",
+    realizacao: "Foco de teste/análise: sistema + ambiente (6 — System + environment). Objetivo da fase: crescimento de confiabilidade e redução de incerteza.",
+    questions: [
+      { type: "N", text: "TRL 6 atingido — o sistema foi instalado, testado e comissionado (\"system installed, tested & commissioned\")?" }
+    ]
+  },
+  {
+    level: 7, title: "TRL 7", subtitle: "Proving Technology over Time (Comprovação da tecnologia ao longo do tempo)",
+    group: 3,
+    marco: "Estado de partida: tecnologia nunca operada em ambiente subsea (\"technology has never been operated subsea\"). Ao ser atingido, a tecnologia está \"field proven\" (comprovada em campo).",
+    realizacao: "Foco de teste/análise: operação (7 — Operating). Objetivo da fase: crescimento de confiabilidade e redução de incerteza.",
+    questions: [
+      { type: "N", text: "TRL 7 atingido — o produto está operando com desempenho aceitável (\"operating with acceptable performance\")?" }
+    ]
+  }
+];
+
+const API_GROUPS = [
+  { id: 1, label: "TRL 0 a 2", ceiling: 2, name: "Entender função e desempenho",
+    description: "Understand function and performance — concepção, demonstração e validação de conceito." },
+  { id: 2, label: "TRL 0 a 4", ceiling: 4, name: "Tornar o dispositivo confiável",
+    description: "Make it Reliable as a device — qualificação do protótipo e do ambiente." },
+  { id: 3, label: "TRL 0 a 7", ceiling: 7, name: "Crescimento de confiabilidade e redução de incerteza",
+    description: "Reliability Growth & Uncertainty Reduction — qualificação de sistema, instalação e comprovação em campo (field proven)." }
+];
+
+/* ===================================================================
+ * Registro de metodologias (frameworks) disponíveis na calculadora.
+ * Cada framework define sua própria escala de níveis, agrupamentos,
+ * nível mínimo/máximo e se possui checklist detalhado (N/I) ou apenas
+ * um critério único por nível.
+ * =================================================================== */
+const FRAMEWORKS = {
+  nasa: {
+    id: "nasa",
+    label: "NASA / ISO 16290",
+    shortLabel: "NASA · ISO 16290 (padrão)",
+    scaleNote: "9 níveis (TRL 1–9) — ABNT NBR ISO 16290:2015, com critérios institucionais adicionais adaptados de ROCHA, D. (2016).",
+    citation: "ABNT NBR ISO 16290:2015; adaptação institucional ROCHA, D. (2016), ITA.",
+    minLevel: 1,
+    maxLevel: 9,
+    hasChecklist: true,
+    levels: TRL_LEVELS,
+    groups: TRL_GROUPS
+  },
+  api: {
+    id: "api",
+    label: "API 17N (Subsea)",
+    shortLabel: "API 17N · Óleo & Gás",
+    scaleNote: "8 níveis (TRL 0–7) — American Petroleum Institute, Recommended Practice 17N, para tecnologia subsea.",
+    citation: "API Recommended Practice 17N (2009); escada de referência: Astrimar.",
+    minLevel: 0,
+    maxLevel: 7,
+    hasChecklist: false,
+    levels: API_LEVELS,
+    groups: API_GROUPS
+  }
+};
+const FRAMEWORK_LIST = Object.values(FRAMEWORKS);

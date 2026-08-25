@@ -1,38 +1,48 @@
 /* ===================================================================
  * Calculadora de TRL — lógica da aplicação
  *
- * Metodologia (replicada a partir da planilha original):
- *   - Cada nível de TRL possui critérios "N" (NBR ISO 16290:2015,
- *     obrigatórios, resposta sim/não) e "I" (adicionais/institucionais,
- *     resposta em % de conclusão, de 0 a 100, passo 5).
- *   - Nota do nível = média de todos os critérios do nível, onde um
- *     critério N vale 100 (atendido) ou 0 (não atendido) e um critério
- *     I vale o seu próprio percentual.
- *   - Um nível "com tolerância" é considerado ATINGIDO quando essa nota
- *     é >= tolerância definida pelo usuário (padrão 33%, igual à
- *     planilha original).
- *   - Um nível "ISO estrito" é considerado ATINGIDO quando TODOS os
- *     critérios N do nível estão marcados como atendidos (sem
- *     tolerância — leitura literal da norma).
- *   - Por definição, a maturidade é cumulativa: o TRL final é o maior
- *     nível em que TODOS os níveis anteriores também foram atingidos.
+ * Metodologia (replicada a partir da planilha original, com suporte a
+ * múltiplas réguas de maturidade — ver FRAMEWORKS em questions.js):
+ *   - Cada nível possui critérios "N" (obrigatórios/mandatórios,
+ *     marcados com ★) e, na régua NASA/ISO, também critérios "I"
+ *     (adicionais/institucionais). Todos são respondidos em três
+ *     estados: Sim (100 pontos), Parcial (50) ou Não (0).
+ *   - Nota do nível = média de todos os critérios do nível.
+ *   - Um nível só pode ser AVANÇADO quando todos os critérios ★
+ *     estiverem em "Sim" (bloqueio duro, sem tolerância) E a nota do
+ *     nível atingir a tolerância mínima definida pelo usuário.
+ *   - Um nível "ISO estrito" é atingido quando todos os critérios ★
+ *     estão em "Sim", independente da nota dos demais critérios.
+ *   - A maturidade é cumulativa: o TRL final é o maior nível em que
+ *     todos os níveis anteriores também foram atingidos.
  * =================================================================== */
 
-const STORAGE_KEY = "trl-calculadora-state-v2";
+const STORAGE_KEY = "trl-calculadora-state-v3";
 
-/* Cada resposta é um tri-estado: "sim" | "parcial" | "nao" | null (não respondido). */
 const ANSWER_VALUES = ["sim", "parcial", "nao"];
 const ANSWER_LABELS = { sim: "Sim", parcial: "Parcial", nao: "Não" };
 const ANSWER_POINTS = { sim: 100, parcial: 50, nao: 0 };
 
-const DEFAULT_STATE = () => ({
-  meta: { nome: "", resp: "", data: "" },
-  groupId: 3,
-  tolerance: 33,
-  currentLevel: 1,
-  answers: {},   // { [level]: ["sim"|"parcial"|"nao"|null, ...] }
-  comments: {}   // { [level]: string }
-});
+function defaultFrameworkState(framework) {
+  const groups = framework.groups;
+  return {
+    groupId: groups[groups.length - 1].id, // grupo mais amplo por padrão
+    tolerance: 33,
+    currentLevel: framework.minLevel,
+    answers: {},   // { [level]: ["sim"|"parcial"|"nao"|null, ...] }
+    comments: {}   // { [level]: string }
+  };
+}
+
+const DEFAULT_STATE = () => {
+  const byFramework = {};
+  FRAMEWORK_LIST.forEach(f => { byFramework[f.id] = defaultFrameworkState(f); });
+  return {
+    meta: { nome: "", resp: "", data: "" },
+    frameworkId: "nasa",
+    byFramework
+  };
+};
 
 let state = loadState();
 
@@ -41,7 +51,13 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_STATE();
     const parsed = JSON.parse(raw);
-    return { ...DEFAULT_STATE(), ...parsed };
+    const base = DEFAULT_STATE();
+    // merge raso, preservando qualquer estado de framework já default-preenchido
+    return {
+      ...base,
+      ...parsed,
+      byFramework: { ...base.byFramework, ...(parsed.byFramework || {}) }
+    };
   } catch (e) {
     return DEFAULT_STATE();
   }
@@ -51,33 +67,30 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function getGroup(id) { return TRL_GROUPS.find(g => g.id === id); }
-function ceilingLevel() { return getGroup(state.groupId).ceiling; }
+/* fw()  = definição da metodologia ativa (níveis, grupos, metadados)
+ * fst() = estado (respostas/comentários/tolerância/grupo) da metodologia ativa */
+function fw() { return FRAMEWORKS[state.frameworkId]; }
+function fst() { return state.byFramework[state.frameworkId]; }
+
+function getGroup(id) { return fw().groups.find(g => g.id === id); }
+function ceilingLevel() { return getGroup(fst().groupId).ceiling; }
+function levelDef(level) { return fw().levels.find(l => l.level === level); }
+function levelPosition(level) { return fw().levels.findIndex(l => l.level === level) + 1; }
 
 function ensureAnswers(level) {
-  const def = TRL_LEVELS.find(l => l.level === level);
-  if (!state.answers[level]) {
-    state.answers[level] = def.questions.map(() => null);
+  const def = levelDef(level);
+  if (!fst().answers[level]) {
+    fst().answers[level] = def.questions.map(() => null);
   }
-  return state.answers[level];
+  return fst().answers[level];
 }
 
 /* ---------------------------------------------------------------
  * Cálculo
- *
- * Cada critério (N ou I) é respondido em três estados: Sim (100
- * pontos), Parcial (50) ou Não (0); não respondido conta como 0.
- *
- * Um nível só pode ser AVANÇADO quando:
- *   1) todos os critérios N (NBR ISO 16290, marcados como "obrigatório")
- *      estiverem respondidos como "Sim" — um único N como "Parcial",
- *      "Não" ou em branco BLOQUEIA o nível, independente da nota; e
- *   2) a nota do nível (média de todos os critérios) atinge a
- *      tolerância mínima definida em "Dados".
  * --------------------------------------------------------------- */
 function computeLevel(level) {
-  const def = TRL_LEVELS.find(l => l.level === level);
-  const answers = state.answers[level];
+  const def = levelDef(level);
+  const answers = fst().answers[level];
   const totalCount = def.questions.length;
   if (!answers) {
     return { percent: 0, evidencedCount: 0, totalCount, mandatoryOk: false,
@@ -104,7 +117,7 @@ function computeLevel(level) {
 
   const percent = totalCount ? points / totalCount : 0;
   const mandatoryOk = mandatoryIssue === null;
-  const thresholdOk = percent >= state.tolerance;
+  const thresholdOk = percent >= fst().tolerance;
   const passTol = mandatoryOk && thresholdOk;
   const passIso = mandatoryOk;
 
@@ -123,9 +136,9 @@ function computeAll() {
   const ceiling = ceilingLevel();
   const rows = [];
   let cumTol = true, cumIso = true;
-  let finalTol = 0, finalIso = 0;
+  let finalTol = null, finalIso = null;
 
-  for (const def of TRL_LEVELS) {
+  for (const def of fw().levels) {
     const inScope = def.level <= ceiling;
     if (!inScope) {
       rows.push({ level: def.level, percent: null, passTol: null, passIso: null, inScope: false });
@@ -139,11 +152,13 @@ function computeAll() {
     rows.push({ level: def.level, percent: r.percent, passTol: r.passTol, passIso: r.passIso,
                 cumTol, cumIso, inScope: true });
   }
+  if (finalTol === null) finalTol = fw().minLevel - 1;
+  if (finalIso === null) finalIso = fw().minLevel - 1;
   return { rows, finalTol, finalIso, ceiling };
 }
 
 function levelAlert(r) {
-  const tol = state.tolerance;
+  const tol = fst().tolerance;
   switch (r.status) {
     case "blocked-nao":
       return { type: "blocked", icon: "✖",
@@ -164,6 +179,100 @@ function levelAlert(r) {
 }
 
 /* ---------------------------------------------------------------
+ * Próximos passos — o que falta para avançar ao próximo TRL
+ * --------------------------------------------------------------- */
+function nextStepsData(result) {
+  const target = result.rows.find(r => r.inScope && !r.cumTol);
+  if (!target) {
+    if (result.finalTol >= fw().maxLevel) return { done: true, maxed: true };
+    return { done: true, maxed: false, ceiling: result.ceiling };
+  }
+  const def = levelDef(target.level);
+  const answers = fst().answers[target.level] || [];
+  const pending = def.questions
+    .map((q, i) => ({ q, val: answers[i] }))
+    .filter(x => x.val !== "sim");
+  const mandatoryPending = pending.filter(x => x.q.type === "N");
+  const priority = mandatoryPending[0] || pending[0] || null;
+  const rest = priority ? pending.filter(x => x !== priority) : [];
+  return { done: false, level: def, priority, rest };
+}
+
+function nextStepsHtml(ns) {
+  if (ns.done) {
+    if (ns.maxed) {
+      return `<div class="nextstep-card done"><div class="ns-head">🏁 Maturidade máxima da régua atingida</div>
+        <p>A tecnologia atingiu o nível mais alto de ${fw().shortLabel} (TRL ${fw().maxLevel}). Não há próximos passos dentro desta metodologia.</p></div>`;
+    }
+    return `<div class="nextstep-card done"><div class="ns-head">✓ Grupo avaliado concluído</div>
+      <p>Todos os níveis do grupo selecionado (até TRL ${ns.ceiling}) foram atingidos. Para continuar, amplie o grupo alvo em "Dados" e prossiga a avaliação.</p></div>`;
+  }
+  const p = ns.priority;
+  const priorityHtml = p
+    ? `<b>Prioridade:</b> ${p.q.type === "N" ? "Atender o critério obrigatório" : "Elevar para “Sim” o critério"} — ${escapeHtml(p.q.text)}`
+    : `<b>Prioridade:</b> concluir os critérios restantes deste nível.`;
+  const restHtml = ns.rest.length
+    ? `<b>Considere também:</b><ul>${ns.rest.map(x => `<li>${x.q.type === "N" ? "★ " : ""}${escapeHtml(x.q.text)}</li>`).join("")}</ul>`
+    : "";
+  return `
+    <div class="nextstep-card">
+      <div class="ns-head">→ Próximo passo — para avançar ao ${ns.level.title} (${escapeHtml(ns.level.subtitle)})</div>
+      <p>${priorityHtml}</p>
+      ${restHtml}
+    </div>`;
+}
+
+/* ---------------------------------------------------------------
+ * Gráfico de qualidade da evidência por nível
+ * --------------------------------------------------------------- */
+function evidenceChartData() {
+  return fw().levels.map(def => {
+    const answers = fst().answers[def.level];
+    if (!answers || answers.every(a => a === null)) {
+      return { level: def.level, state: "none" };
+    }
+    const r = computeLevel(def.level);
+    if (r.mandatoryIssue === "nao" || r.mandatoryIssue === "parcial") {
+      return { level: def.level, state: "blocked", percent: r.percent };
+    }
+    let band;
+    if (r.percent >= 80) band = "forte";
+    else if (r.percent >= 60) band = "bom";
+    else if (r.percent >= 40) band = "parcial";
+    else band = "fraco";
+    return { level: def.level, state: "scored", band, percent: r.percent };
+  });
+}
+
+function evidenceChartHtml(data) {
+  const cols = data.map(d => {
+    if (d.state === "none") {
+      return `<div class="ev-col">
+        <div class="ev-track"><div class="ev-bar none"></div></div>
+        <div class="ev-pct none">—</div><div class="ev-level">${d.level}</div></div>`;
+    }
+    if (d.state === "blocked") {
+      return `<div class="ev-col">
+        <div class="ev-track"><div class="ev-bar blocked" style="height:100%"></div></div>
+        <div class="ev-pct blocked">★</div><div class="ev-level">${d.level}</div></div>`;
+    }
+    const h = Math.max(4, Math.round(d.percent));
+    return `<div class="ev-col">
+      <div class="ev-track"><div class="ev-bar ${d.band}" style="height:${h}%"></div></div>
+      <div class="ev-pct">${Math.round(d.percent)}%</div><div class="ev-level">${d.level}</div></div>`;
+  }).join("");
+  return `
+    <div class="evidence-chart">${cols}</div>
+    <div class="evidence-legend">
+      <span><i class="sw forte"></i>Forte (≥80%)</span>
+      <span><i class="sw bom"></i>Bom (60–79%)</span>
+      <span><i class="sw parcial"></i>Parcial (40–59%)</span>
+      <span><i class="sw fraco"></i>Fraco (&lt;40%)</span>
+      <span><i class="sw blocked"></i>Bloqueado (★ = obrigatório não atendido)</span>
+    </div>`;
+}
+
+/* ---------------------------------------------------------------
  * Navegação entre telas
  * --------------------------------------------------------------- */
 function showScreen(name) {
@@ -172,7 +281,7 @@ function showScreen(name) {
   document.querySelectorAll("#stepper button").forEach(b => {
     b.classList.toggle("active", b.dataset.screen === name);
   });
-  if (name === "avaliacao") renderLevel(state.currentLevel);
+  if (name === "avaliacao") renderLevel(fst().currentLevel);
   if (name === "resultado") renderResultado();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -188,10 +297,12 @@ document.querySelectorAll("[data-goto]").forEach(b => {
  * Tela 1 · Início
  * --------------------------------------------------------------- */
 function renderIsoRef() {
+  document.getElementById("iso-ref-title").textContent =
+    `Referência rápida — os ${fw().levels.length} níveis (${fw().label})`;
   const table = document.getElementById("iso-ref-table");
   let html = "<thead><tr><th>Nível</th><th>Marco alcançado</th><th>Realização de trabalho</th></tr></thead><tbody>";
-  TRL_LEVELS.forEach(l => {
-    html += `<tr><td><b>${l.title}</b><br><span style="color:var(--gray-500);font-size:12px">${l.subtitle}</span></td>
+  fw().levels.forEach(l => {
+    html += `<tr><td><b>${l.title}</b><br><span style="color:var(--text-faint);font-size:12px">${l.subtitle}</span></td>
       <td>${l.marco}</td><td>${l.realizacao}</td></tr>`;
   });
   html += "</tbody>";
@@ -203,26 +314,63 @@ document.getElementById("btn-start").addEventListener("click", () => showScreen(
 /* ---------------------------------------------------------------
  * Tela 2 · Dados
  * --------------------------------------------------------------- */
+function renderFrameworkOptions() {
+  const wrap = document.getElementById("framework-options");
+  wrap.innerHTML = "";
+  FRAMEWORK_LIST.forEach(f => {
+    const div = document.createElement("label");
+    div.className = "group-option" + (state.frameworkId === f.id ? " selected" : "");
+    div.innerHTML = `
+      <input type="radio" name="framework" value="${f.id}" ${state.frameworkId === f.id ? "checked" : ""}>
+      <div>
+        <div class="g-title">${f.label}</div>
+        <div class="g-sub">${f.scaleNote}</div>
+      </div>`;
+    div.querySelector("input").addEventListener("change", () => {
+      state.frameworkId = f.id;
+      saveState();
+      renderFrameworkOptions();
+      renderGroupOptions();
+      bindToleranceInput();
+      renderIsoRef();
+      updateTopbarBadge();
+    });
+    wrap.appendChild(div);
+  });
+}
+
 function renderGroupOptions() {
   const wrap = document.getElementById("group-options");
   wrap.innerHTML = "";
-  TRL_GROUPS.forEach(g => {
+  fw().groups.forEach(g => {
     const div = document.createElement("label");
-    div.className = "group-option" + (state.groupId === g.id ? " selected" : "");
+    div.className = "group-option" + (fst().groupId === g.id ? " selected" : "");
     div.innerHTML = `
-      <input type="radio" name="group" value="${g.id}" ${state.groupId === g.id ? "checked" : ""}>
+      <input type="radio" name="group" value="${g.id}" ${fst().groupId === g.id ? "checked" : ""}>
       <div>
         <div class="g-title">${g.label} — ${g.name}</div>
         <div class="g-sub">${g.description}</div>
       </div>`;
     div.querySelector("input").addEventListener("change", () => {
-      state.groupId = g.id;
-      if (state.currentLevel > g.ceiling) state.currentLevel = g.ceiling;
+      fst().groupId = g.id;
+      if (fst().currentLevel > g.ceiling) fst().currentLevel = g.ceiling;
       saveState();
       renderGroupOptions();
     });
     wrap.appendChild(div);
   });
+}
+
+function bindToleranceInput() {
+  const tol = document.getElementById("inp-tolerancia");
+  const tolOut = document.getElementById("tolerancia-out");
+  tol.value = fst().tolerance;
+  tolOut.textContent = fst().tolerance;
+  tol.oninput = () => {
+    fst().tolerance = Number(tol.value);
+    tolOut.textContent = fst().tolerance;
+    saveState();
+  };
 }
 
 function bindMetaInputs() {
@@ -233,15 +381,7 @@ function bindMetaInputs() {
   nome.addEventListener("input", () => { state.meta.nome = nome.value; saveState(); });
   resp.addEventListener("input", () => { state.meta.resp = resp.value; saveState(); });
   data.addEventListener("input", () => { state.meta.data = data.value; saveState(); });
-
-  const tol = document.getElementById("inp-tolerancia");
-  const tolOut = document.getElementById("tolerancia-out");
-  tol.value = state.tolerance; tolOut.textContent = state.tolerance;
-  tol.addEventListener("input", () => {
-    state.tolerance = Number(tol.value);
-    tolOut.textContent = state.tolerance;
-    saveState();
-  });
+  bindToleranceInput();
 }
 
 document.getElementById("btn-to-avaliacao").addEventListener("click", () => showScreen("avaliacao"));
@@ -261,10 +401,10 @@ function renderLevelTabs() {
   const ceiling = ceilingLevel();
   const wrap = document.getElementById("level-tabs");
   wrap.innerHTML = "";
-  TRL_LEVELS.forEach(def => {
+  fw().levels.forEach(def => {
     const inScope = def.level <= ceiling;
     const btn = document.createElement("button");
-    btn.className = "level-tab" + (def.level === state.currentLevel ? " current" : "");
+    btn.className = "level-tab" + (def.level === fst().currentLevel ? " current" : "");
     let pctLabel = "fora do grupo";
     if (inScope) {
       const r = computeLevel(def.level);
@@ -274,19 +414,20 @@ function renderLevelTabs() {
     }
     btn.innerHTML = `<span class="lt-num">TRL ${def.level}</span><span class="lt-pct">${pctLabel}</span>`;
     btn.disabled = !inScope;
-    btn.addEventListener("click", () => { state.currentLevel = def.level; renderLevel(def.level); });
+    btn.addEventListener("click", () => { fst().currentLevel = def.level; renderLevel(def.level); });
     wrap.appendChild(btn);
   });
 }
 
 function renderLevel(level) {
-  const def = TRL_LEVELS.find(l => l.level === level);
-  state.currentLevel = level;
+  const def = levelDef(level);
+  fst().currentLevel = level;
   ensureAnswers(level);
   saveState();
 
   document.getElementById("lvl-chip").textContent = "TRL" + level;
-  document.getElementById("lvl-eyebrow").textContent = `Nível ${level} de 9 · ${getGroup(state.groupId).label}`;
+  document.getElementById("lvl-eyebrow").textContent =
+    `Nível ${levelPosition(level)} de ${fw().levels.length} · ${fw().shortLabel} · ${getGroup(fst().groupId).label}`;
   document.getElementById("lvl-title").textContent = def.subtitle;
   document.getElementById("lvl-marco").textContent = def.marco;
   document.getElementById("lvl-realizacao").textContent = def.realizacao;
@@ -295,21 +436,21 @@ function renderLevel(level) {
   qwrap.innerHTML = "";
   def.questions.forEach((q, i) => qwrap.appendChild(renderQuestionRow(level, i, q)));
 
-  document.getElementById("lvl-comment").value = state.comments[level] || "";
+  document.getElementById("lvl-comment").value = fst().comments[level] || "";
   document.getElementById("lvl-comment").oninput = (e) => {
-    state.comments[level] = e.target.value; saveState();
+    fst().comments[level] = e.target.value; saveState();
   };
 
   updateLevelStatus(level);
   renderLevelTabs();
 
-  document.getElementById("btn-prev-level").disabled = level <= 1;
+  document.getElementById("btn-prev-level").disabled = level <= fw().minLevel;
   const ceiling = ceilingLevel();
   document.getElementById("btn-next-level").textContent = level >= ceiling ? "Ver resultado →" : "Próximo nível →";
 }
 
 function renderQuestionRow(level, index, q) {
-  const answers = state.answers[level];
+  const answers = fst().answers[level];
   const row = document.createElement("div");
   row.className = "q-row";
   const mandatoryChip = q.type === "N" ? `<span class="chip-mandatory">★ mandatório</span>` : "";
@@ -341,7 +482,7 @@ function updateLevelStatus(level) {
   document.getElementById("lvl-status-text").textContent = `${meta.label} · ${Math.round(r.percent)}%`;
 
   const seg = document.getElementById("lvl-segmented");
-  const answers = state.answers[level] || [];
+  const answers = fst().answers[level] || [];
   seg.innerHTML = answers.map(a => `<span class="seg ${a || "empty"}"></span>`).join("");
 
   const alert = levelAlert(r);
@@ -360,12 +501,12 @@ document.getElementById("lvl-iso-toggle").addEventListener("click", () => {
 });
 
 document.getElementById("btn-prev-level").addEventListener("click", () => {
-  if (state.currentLevel > 1) renderLevel(state.currentLevel - 1);
+  if (fst().currentLevel > fw().minLevel) renderLevel(fst().currentLevel - 1);
 });
 document.getElementById("btn-next-level").addEventListener("click", () => {
   const ceiling = ceilingLevel();
-  if (state.currentLevel >= ceiling) { showScreen("resultado"); }
-  else renderLevel(state.currentLevel + 1);
+  if (fst().currentLevel >= ceiling) { showScreen("resultado"); }
+  else renderLevel(fst().currentLevel + 1);
 });
 document.getElementById("btn-peek-result").addEventListener("click", () => showScreen("resultado"));
 
@@ -405,12 +546,15 @@ function renderResultado() {
   document.getElementById("res-nome").textContent = state.meta.nome || "—";
   document.getElementById("res-resp").textContent = state.meta.resp || "—";
   document.getElementById("res-data").textContent = formatDate(state.meta.data);
+  document.getElementById("res-metodologia").textContent = fw().label;
 
   document.getElementById("res-trl-tol").textContent = "TRL " + result.finalTol;
   document.getElementById("res-trl-iso").textContent = "TRL " + result.finalIso;
 
   document.getElementById("ladder").innerHTML = ladderHtml(result);
   document.getElementById("res-table").querySelector("tbody").innerHTML = tableRowsHtml(result);
+  document.getElementById("res-evidence").innerHTML = evidenceChartHtml(evidenceChartData());
+  document.getElementById("res-nextsteps").innerHTML = nextStepsHtml(nextStepsData(result));
 }
 
 function formatDate(iso) {
@@ -420,7 +564,7 @@ function formatDate(iso) {
 }
 
 document.getElementById("btn-reset").addEventListener("click", () => {
-  if (confirm("Isso irá apagar todas as respostas da avaliação atual. Deseja continuar?")) {
+  if (confirm("Isso irá apagar todas as respostas da avaliação atual (em todas as metodologias). Deseja continuar?")) {
     localStorage.removeItem(STORAGE_KEY);
     state = DEFAULT_STATE();
     showScreen("inicio");
@@ -443,17 +587,21 @@ function buildReport() {
   document.getElementById("rep-nome").textContent = state.meta.nome || "—";
   document.getElementById("rep-resp").textContent = state.meta.resp || "—";
   document.getElementById("rep-data").textContent = formatDate(state.meta.data);
+  document.getElementById("rep-metodologia").textContent = fw().label;
   document.getElementById("rep-trl-tol").textContent = "TRL " + result.finalTol;
   document.getElementById("rep-trl-iso").textContent = "TRL " + result.finalIso;
-  document.getElementById("rep-tol-pct").textContent = state.tolerance + "%";
+  document.getElementById("rep-tol-pct").textContent = fst().tolerance + "%";
   document.getElementById("rep-ladder").innerHTML = ladderHtml(result);
   document.getElementById("rep-table").querySelector("tbody").innerHTML = tableRowsHtml(result);
+  document.getElementById("rep-evidence").innerHTML = evidenceChartHtml(evidenceChartData());
+  document.getElementById("rep-nextsteps").innerHTML = nextStepsHtml(nextStepsData(result));
+  document.getElementById("rep-citation").textContent = fw().citation;
 
   const commentsWrap = document.getElementById("rep-comments");
   commentsWrap.innerHTML = "";
   let any = false;
-  TRL_LEVELS.forEach(def => {
-    const c = state.comments[def.level];
+  fw().levels.forEach(def => {
+    const c = fst().comments[def.level];
     if (c && c.trim()) {
       any = true;
       const p = document.createElement("p");
@@ -473,10 +621,16 @@ function escapeHtml(str) {
 /* ---------------------------------------------------------------
  * Init
  * --------------------------------------------------------------- */
+function updateTopbarBadge() {
+  document.getElementById("topbar-metodologia").textContent = fw().shortLabel;
+}
+
 function init() {
   renderIsoRef();
+  renderFrameworkOptions();
   renderGroupOptions();
   bindMetaInputs();
+  updateTopbarBadge();
   showScreen("inicio");
 }
 init();

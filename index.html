@@ -14,7 +14,7 @@
     <span class="badge">TRL</span>
     <div>
       Calculadora de Maturidade Tecnológica
-      <small>ABNT NBR ISO 16290:2015</small>
+      <small id="topbar-metodologia">ABNT NBR ISO 16290:2015</small>
     </div>
   </div>
   <nav class="stepper" id="stepper">
@@ -64,13 +64,21 @@
     </div>
 
     <div class="card">
-      <h2>Referência rápida — os 9 níveis</h2>
+      <h2 id="iso-ref-title">Referência rápida</h2>
       <table class="result-table" id="iso-ref-table"></table>
     </div>
   </section>
 
   <!-- ===================== TELA 2 · DADOS ===================== -->
   <section class="screen" id="screen-dados">
+    <div class="card">
+      <h2>Metodologia de avaliação</h2>
+      <p>Esta calculadora foi construída com a régua da NASA/ISO 16290 como padrão, mas suporta outras
+      métricas de maturidade — troque quando necessário. Respostas de cada metodologia ficam salvas
+      separadamente, então alternar não apaga o que já foi preenchido.</p>
+      <div class="group-options" id="framework-options"></div>
+    </div>
+
     <div class="card">
       <h2>Dados da tecnologia</h2>
       <p>Breve identificação da tecnologia avaliada, do responsável pela avaliação e da data.</p>
@@ -92,14 +100,14 @@
 
     <div class="card">
       <h2>Definição do grupo</h2>
-      <p>Define até qual TRL a avaliação irá responder. A resposta é sempre cumulativa a partir do TRL 1.</p>
+      <p>Define até qual TRL a avaliação irá responder. A resposta é sempre cumulativa a partir do nível mínimo da régua escolhida.</p>
       <div class="group-options" id="group-options"></div>
     </div>
 
     <div class="card">
       <h2>Tolerância</h2>
-      <p>Percentual mínimo de conclusão média (critérios ISO + adicionais) para que um nível seja
-      considerado atingido. O padrão da planilha original é <b>33%</b>.</p>
+      <p>Percentual mínimo de nota média do nível (critérios obrigatórios + adicionais, quando houver)
+      para que ele seja considerado atingido. O padrão da planilha original é <b>33%</b>.</p>
       <div class="tolerance-box">
         <input type="range" id="inp-tolerancia" min="0" max="100" step="5" value="33">
         <span class="tolerance-value"><span id="tolerancia-out">33</span>%</span>
@@ -130,9 +138,9 @@
 
       <div class="segmented" id="lvl-segmented"></div>
 
-      <button type="button" class="iso-toggle" id="lvl-iso-toggle">ℹ️ Ver marco e realização de trabalho (ISO 16290)</button>
+      <button type="button" class="iso-toggle" id="lvl-iso-toggle">ℹ️ Ver marco e realização de trabalho deste nível</button>
       <div class="iso-ref" id="lvl-iso-ref" hidden>
-        <b>Marco (ISO 16290):</b> <span id="lvl-marco"></span><br>
+        <b>Marco:</b> <span id="lvl-marco"></span><br>
         <b>Realização de trabalho:</b> <span id="lvl-realizacao"></span>
       </div>
 
@@ -163,18 +171,19 @@
         <div><div class="k">Tecnologia</div><div class="v" id="res-nome">—</div></div>
         <div><div class="k">Responsável</div><div class="v" id="res-resp">—</div></div>
         <div><div class="k">Data</div><div class="v" id="res-data">—</div></div>
+        <div><div class="k">Metodologia</div><div class="v" id="res-metodologia">—</div></div>
       </div>
 
       <div class="summary-banner">
         <div class="trl-result-card tolerant">
           <div class="lab">Resultado com tolerância</div>
           <div class="big" id="res-trl-tol">TRL 0</div>
-          <div class="desc">Considera critérios ISO + adicionais, respeitando a tolerância definida</div>
+          <div class="desc">Considera critérios obrigatórios + adicionais, respeitando a tolerância definida</div>
         </div>
         <div class="trl-result-card strict">
-          <div class="lab">Resultado ISO 16290 estrito</div>
+          <div class="lab">Resultado leitura estrita</div>
           <div class="big" id="res-trl-iso">TRL 0</div>
-          <div class="desc">Considera somente os critérios obrigatórios da norma, sem tolerância</div>
+          <div class="desc">Considera somente os critérios obrigatórios (★), sem tolerância</div>
         </div>
       </div>
 
@@ -183,10 +192,22 @@
     </div>
 
     <div class="card">
+      <h2>Qualidade da evidência por nível</h2>
+      <p>Cada barra mostra a nota do nível (Sim/Parcial/Não → 100/50/0). Um nível fica marcado como
+      <b>Bloqueado</b> sempre que algum critério obrigatório (★) não estiver em "Sim", independente da nota.</p>
+      <div id="res-evidence"></div>
+    </div>
+
+    <div class="card">
+      <h2>Próximos passos</h2>
+      <div id="res-nextsteps"></div>
+    </div>
+
+    <div class="card">
       <h2>Detalhamento por nível</h2>
       <table class="result-table" id="res-table">
         <thead>
-          <tr><th>Nível</th><th class="num">% concluído</th><th class="num">Com tolerância</th><th class="num">ISO estrito</th></tr>
+          <tr><th>Nível</th><th class="num">% concluído</th><th class="num">Com tolerância</th><th class="num">Leitura estrita</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -214,7 +235,7 @@
     <div class="report-head">
       <div>
         <h1>Relatório de Avaliação de TRL</h1>
-        <div style="color:var(--gray-500); font-size:13px">Nível de Maturidade Tecnológica — ABNT NBR ISO 16290:2015</div>
+        <div style="color:var(--gray-500); font-size:13px">Nível de Maturidade Tecnológica — <span id="rep-citation">ABNT NBR ISO 16290:2015</span></div>
       </div>
       <div class="meta">
         <div id="rep-gendate"></div>
@@ -227,6 +248,7 @@
         <div><div class="k">Tecnologia</div><div class="v" id="rep-nome">—</div></div>
         <div><div class="k">Responsável</div><div class="v" id="rep-resp">—</div></div>
         <div><div class="k">Data da avaliação</div><div class="v" id="rep-data">—</div></div>
+        <div><div class="k">Metodologia</div><div class="v" id="rep-metodologia">—</div></div>
       </div>
     </div>
 
@@ -234,17 +256,27 @@
       <h2>Resultado</h2>
       <div class="info-grid">
         <div><div class="k">TRL com tolerância</div><div class="v" id="rep-trl-tol">—</div></div>
-        <div><div class="k">TRL ISO 16290 estrito</div><div class="v" id="rep-trl-iso">—</div></div>
+        <div><div class="k">TRL leitura estrita</div><div class="v" id="rep-trl-iso">—</div></div>
         <div><div class="k">Tolerância utilizada</div><div class="v" id="rep-tol-pct">—</div></div>
       </div>
       <div class="ladder" id="rep-ladder" style="margin-top:16px"></div>
     </div>
 
     <div class="report-section">
+      <h2>Qualidade da evidência por nível</h2>
+      <div id="rep-evidence"></div>
+    </div>
+
+    <div class="report-section" id="rep-nextsteps-section">
+      <h2>Próximos passos</h2>
+      <div id="rep-nextsteps"></div>
+    </div>
+
+    <div class="report-section">
       <h2>Detalhamento por nível</h2>
       <table class="result-table" id="rep-table">
         <thead>
-          <tr><th>Nível</th><th class="num">% concluído</th><th class="num">Com tolerância</th><th class="num">ISO estrito</th></tr>
+          <tr><th>Nível</th><th class="num">% concluído</th><th class="num">Com tolerância</th><th class="num">Leitura estrita</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -253,6 +285,21 @@
     <div class="report-section" id="rep-comments-section">
       <h2>Comentários e evidências por nível</h2>
       <div id="rep-comments"></div>
+    </div>
+
+    <div class="report-notice">
+      <div class="rn-title">⚠ Aviso metodológico</div>
+      <p>Este relatório constitui uma estimativa preliminar baseada nas informações declaradas pelo
+      avaliador, configurando-se essencialmente como um instrumento de caráter didático e consultivo.</p>
+      <ul>
+        <li><b>Natureza qualitativa:</b> o nível de TRL é determinado pela presença de critérios
+        obrigatórios e pela nota mínima de tolerância, não por uma pontuação numérica arbitrária.</li>
+        <li><b>Visão holística:</b> para um diagnóstico completo, recomenda-se complementar esta análise
+        com outras métricas de maturidade, como o MRL (fabricação) e o IRL (integração).</li>
+        <li><b>Limitação do escopo:</b> este documento é um demonstrativo preliminar e não substitui
+        análises técnicas especializadas, validações documentais, pareceres regulatórios ou auditorias
+        formais.</li>
+      </ul>
     </div>
 
     <div class="report-foot">
