@@ -127,11 +127,11 @@ Esse "de-para" está definido em `assets/questions.js`, no registro `FRAMEWORKS`
 deslocada, basta um novo item nesse registro, sem duplicar o checklist nem alterar a
 lógica de cálculo em `app.js`.
 
-> MRL (Manufacturing Readiness Level) e IRL (Integration Readiness Level), mencionados no
-> aviso metodológico do relatório, são métricas complementares — avaliam dimensões
-> diferentes (fabricação e integração), não níveis alternativos da mesma régua de TRL —
-> por isso não entram no seletor de metodologia, mas podem ser adicionadas como uma nova
-> aba/relatório complementar se fizer sentido no futuro.
+> MRL (Manufacturing Readiness Level) e IRL (Integration Readiness Level) são métricas
+> complementares — avaliam dimensões diferentes (fabricação e integração), não níveis
+> alternativos da mesma régua de TRL — por isso não entram no seletor de metodologia, mas
+> podem ser adicionadas como uma nova aba/relatório complementar se fizer sentido no
+> futuro.
 
 ## Estrutura
 
@@ -172,6 +172,7 @@ O relatório traz:
 - **Próximos passos** — identifica automaticamente o primeiro nível ainda não atingido na
   cadeia cumulativa e lista o que falta: o critério obrigatório pendente como prioridade,
   e os demais critérios não atendidos daquele nível como itens a considerar;
-- Detalhamento por nível, comentários/evidências registrados e um aviso metodológico
-  (natureza qualitativa do resultado, recomendação de complementar com MRL/IRL, e
-  limitação de escopo do documento).
+- Detalhamento por nível e comentários/evidências registrados;
+- **Histórico de reavaliações** — o mesmo gráfico de linha e tabela da tela de resultado
+  (ver "Histórico de reavaliações" acima), quando a avaliação já tem ao menos um retrato
+  registrado.

@@ -1020,6 +1020,9 @@ function buildReport() {
   document.getElementById("rep-nextsteps").innerHTML = nextStepsHtml(nextStepsData(result));
   document.getElementById("rep-citation").textContent = fw().citation;
 
+  document.getElementById("rep-history-section").style.display = state.history.length ? "" : "none";
+  document.getElementById("rep-history").innerHTML = state.history.length ? timelineHtml(state.history) : "";
+
   const commentsWrap = document.getElementById("rep-comments");
   commentsWrap.innerHTML = "";
   let any = false;

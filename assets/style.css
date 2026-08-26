@@ -506,16 +506,15 @@ footer { text-align: center; color: var(--text-faint); font-size: 12.5px; paddin
 .report-foot { margin-top: 40px; display: flex; justify-content: space-between; font-size: 12px; color: #6b7686; border-top: 1px solid #d7dce3; padding-top: 12px; }
 .sign-line { margin-top: 50px; border-top: 1px solid #3c4757; width: 260px; text-align: center; padding-top: 6px; font-size: 12.5px; color: #3c4757; }
 
-.report-notice { background: #0b2545; color: #ffffff; border-radius: 10px; padding: 16px 20px; margin: 22px 0; }
-.report-notice .rn-title { font-weight: 700; margin-bottom: 8px; }
-.report-notice p { color: rgba(255,255,255,.9); margin: 0 0 10px; font-size: 12.5px; }
-.report-notice ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
-.report-notice li { color: rgba(255,255,255,.9); font-size: 12.5px; }
-.report-notice b { color: #ffffff; }
-
 /* The printed report always sits on white paper regardless of the
-   viewer's theme, so pin these components to literal light colors
-   rather than the theme tokens they use on screen. */
+   viewer's theme. Pinning the tokens themselves to the light palette
+   on .report-page makes every var(--...)-based color inside it
+   (including inline SVG fill/stroke, like the timeline chart)
+   resolve to light values through normal CSS inheritance. */
+.report-page {
+  --text: #14181f; --text-muted: #3c4757; --text-faint: #6b7686;
+  --border: #e7eaef; --border-strong: #d7dce3; --surface-alt: #f3f5f8;
+}
 .report-page .info-grid div { background: #f3f5f8; }
 .report-page .info-grid .k { color: #6b7686; }
 .report-page .info-grid .v { color: #0b2545; }
