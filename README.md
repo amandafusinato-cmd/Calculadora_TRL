@@ -17,6 +17,30 @@ python3 -m http.server 8000
 Todas as respostas ficam salvas apenas no `localStorage` do navegador do usuário — nenhum
 dado é enviado a um servidor.
 
+## Múltiplas avaliações (Minhas avaliações)
+
+A calculadora guarda mais de uma avaliação ao mesmo tempo — uma por tecnologia. A tela
+**"📁 Avaliações"** lista todas, com o TRL atual de cada uma, e permite:
+
+- **Abrir** — continuar uma avaliação existente;
+- **Duplicar** — criar uma cópia (útil para reavaliar a mesma tecnologia mais tarde sem
+  perder o histórico da avaliação original);
+- **Exportar (.json)** — baixa a avaliação inteira como arquivo, para backup, para levar a
+  outro computador, ou para enviar a um colega revisar;
+- **Importar (.json)** — carrega um arquivo exportado como uma nova avaliação;
+- **Excluir**.
+
+"+ Nova avaliação" sempre cria uma avaliação em branco e preserva as demais — não existe
+mais um botão que apaga tudo.
+
+## Histórico de reavaliações
+
+Na tela de resultado, o botão **"📌 Registrar retrato"** grava um ponto no histórico
+daquela avaliação (data + TRL com tolerância + TRL leitura estrita). Reavaliações no mesmo
+dia atualizam o retrato daquele dia em vez de duplicar. A partir do segundo retrato, um
+gráfico de linha (mais uma tabela) mostra a evolução do TRL ao longo do tempo. Gerar o
+relatório também registra um retrato automaticamente.
+
 ## Metodologia
 
 A calculadora segue a mesma base da planilha original: **ABNT NBR ISO 16290:2015**, com
@@ -96,11 +120,16 @@ lógica de cálculo em `app.js`.
 ## Estrutura
 
 ```
-index.html            Telas: Início, Dados, Avaliação, Resultado + relatório imprimível
+index.html            Telas: Avaliações, Início, Dados, Avaliação, Resultado + relatório imprimível
 assets/style.css       Estilo da interface e do relatório (inclui @media print)
-assets/questions.js    Bancos de perguntas por metodologia (NASA/ISO e API 17N) + registro FRAMEWORKS
-assets/app.js          Lógica de cálculo, navegação e geração do relatório
+assets/questions.js    Banco de perguntas (checklist único) + registro FRAMEWORKS (réguas)
+assets/app.js          Store de projetos, cálculo, navegação, histórico e geração do relatório
 ```
+
+Internamente, o `localStorage` guarda um único objeto `{ activeId, projects: { [id]: Projeto } }`
+sob a chave `trl-calculadora-store-v1`. Cada `Projeto` tem sua própria régua, grupo,
+tolerância, respostas, comentários e histórico de retratos — é o que a tela "Minhas
+avaliações" lista e o que os botões Exportar/Importar leem e escrevem, um projeto por vez.
 
 ## Relatório
 

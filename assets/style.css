@@ -158,6 +158,23 @@ button { font-family: inherit; }
   .senai-credit { border-left: none; padding-left: 0; margin-left: 0; }
 }
 
+.global-progress { height: 3px; background: var(--border); position: sticky; top: 0; z-index: 19; }
+.global-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--teal-500), var(--blue-500)); transition: width .2s; }
+
+.project-bar {
+  display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap;
+  background: var(--accent-soft-bg); color: var(--accent-soft-text);
+  padding: 8px 24px; font-size: 12.5px; border-bottom: 1px solid var(--border);
+}
+.project-bar b { color: var(--text); }
+.project-bar-meta { color: var(--text-faint); }
+.project-bar-link {
+  margin-left: auto; background: none; border: none; color: var(--blue-500);
+  font-size: 12.5px; font-weight: 600; cursor: pointer; text-decoration: underline;
+  text-underline-offset: 2px; padding: 0;
+}
+body.screen-projetos-active .project-bar { display: none; }
+
 main { max-width: 980px; margin: 0 auto; padding: 28px 20px 80px; }
 .screen { display: none; animation: fade .25s ease; }
 .screen.active { display: block; }
@@ -405,6 +422,46 @@ table.result-table td.num { text-align: center; font-variant-numeric: tabular-nu
 .nextstep-card ul { margin: 0; padding-left: 20px; font-size: 13.5px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; }
 
 footer { text-align: center; color: var(--text-faint); font-size: 12.5px; padding: 26px; }
+
+/* ---------- Validation ---------- */
+.field-error {
+  background: var(--bad-bg); color: var(--bad-text); border-radius: 8px; padding: 10px 14px;
+  font-size: 13px; font-weight: 600; margin-top: -8px; margin-bottom: 16px;
+}
+
+/* ---------- Projects (Minhas avaliações) ---------- */
+.projects-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.projects-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.project-card {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px;
+}
+.project-card.active { border-color: var(--blue-500); background: var(--accent-soft-bg); }
+.project-card .pc-main { min-width: 200px; }
+.project-card .pc-name { font-weight: 700; color: var(--text); font-size: 15px; margin-bottom: 2px; }
+.project-card .pc-meta { font-size: 12.5px; color: var(--text-faint); display: flex; gap: 10px; flex-wrap: wrap; }
+.project-card .pc-badges { display: flex; gap: 8px; align-items: center; }
+.project-card .pc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.project-card .pc-actions button {
+  background: var(--surface-alt); border: 1px solid var(--border-strong); color: var(--text-muted);
+  padding: 6px 11px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.project-card .pc-actions button:hover { background: var(--border); }
+.project-card .pc-actions button.pc-danger:hover { background: var(--bad-bg); color: var(--bad-text); }
+.trl-badge {
+  display: inline-flex; align-items: center; font-weight: 800; font-size: 13px;
+  padding: 4px 10px; border-radius: 8px; background: var(--blue-500); color: #fff;
+}
+.projects-empty { color: var(--text-faint); font-size: 13.5px; padding: 20px 0; text-align: center; }
+
+/* ---------- Timeline (histórico de reavaliações) ---------- */
+.timeline-wrap { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+.timeline-svg { flex: 1; min-width: 260px; }
+.timeline-table { flex: 0 0 auto; }
+.timeline-table table { border-collapse: collapse; font-size: 13px; }
+.timeline-table td { padding: 4px 10px 4px 0; color: var(--text-muted); }
+.timeline-table td.tv { font-weight: 700; color: var(--text); text-align: right; }
 
 /* ---------- Print / report ---------- */
 #report-root { display: none; }

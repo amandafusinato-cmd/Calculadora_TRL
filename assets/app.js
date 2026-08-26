@@ -19,57 +19,179 @@
  * avaliação (um único conjunto de critérios e respostas, numerado
  * internamente de 1 a 9 — a numeração NASA/ISO). A régua escolhida
  * pelo usuário (NASA ou API 17N) só controla como esse mesmo nível
- * interno é NUMERADO e ATÉ ONDE ele é navegável — não duplica nem
- * substitui as respostas.
+ * interno é NUMERADO e ATÉ ONDE ele é navegável.
+ *
+ * Múltiplas avaliações: cada tecnologia avaliada é um "projeto",
+ * salvo separadamente (ver seção "Store" abaixo). `state` sempre
+ * aponta para o projeto ativo — funções de cálculo aceitam um projeto
+ * explícito (parâmetro `proj`, default = state) para permitir listar
+ * o status de todos os projetos sem trocar o projeto ativo.
  * =================================================================== */
 
-const STORAGE_KEY = "trl-calculadora-state-v4";
+const STORE_KEY = "trl-calculadora-store-v1";
 
 const ANSWER_VALUES = ["sim", "parcial", "nao"];
 const ANSWER_LABELS = { sim: "Sim", parcial: "Parcial", nao: "Não" };
 const ANSWER_POINTS = { sim: 100, parcial: 50, nao: 0 };
 
-const DEFAULT_STATE = () => ({
-  meta: { nome: "", resp: "", data: "" },
-  frameworkId: "nasa",
-  groupId: TRL_GROUPS[TRL_GROUPS.length - 1].id, // grupo mais amplo por padrão
-  tolerance: 33,
-  currentLevel: 1,          // nível interno (numeração NASA/ISO, 1–9)
-  answers: {},               // { [nível interno]: ["sim"|"parcial"|"nao"|null, ...] }
-  comments: {}                // { [nível interno]: string }
-});
-
-let state = loadState();
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_STATE();
-    const parsed = JSON.parse(raw);
-    return { ...DEFAULT_STATE(), ...parsed };
-  } catch (e) {
-    return DEFAULT_STATE();
-  }
+/* ---------------------------------------------------------------
+ * Store — múltiplas avaliações (projetos)
+ * --------------------------------------------------------------- */
+function genId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+function newProject(name) {
+  const now = new Date().toISOString();
+  return {
+    id: genId(),
+    createdAt: now,
+    updatedAt: now,
+    meta: { nome: name || "", resp: "", data: "" },
+    frameworkId: "nasa",
+    groupId: TRL_GROUPS[TRL_GROUPS.length - 1].id, // grupo mais amplo por padrão
+    tolerance: 33,
+    currentLevel: 1,           // nível interno (numeração NASA/ISO, 1–9)
+    answers: {},                 // { [nível interno]: ["sim"|"parcial"|"nao"|null, ...] }
+    comments: {},                 // { [nível interno]: string }
+    history: []                    // [{ date, day, finalTol, finalIso, frameworkId }, ...]
+  };
+}
+
+function loadStore() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.projects && Object.keys(parsed.projects).length && parsed.projects[parsed.activeId]) {
+        // preenche campos que possam faltar em projetos salvos por versões anteriores
+        Object.values(parsed.projects).forEach(p => {
+          if (!p.history) p.history = [];
+          if (!p.comments) p.comments = {};
+          if (!p.answers) p.answers = {};
+        });
+        return parsed;
+      }
+    }
+  } catch (e) { /* localStorage indisponível ou dado corrompido — recomeça */ }
+  const p = newProject("");
+  return { activeId: p.id, projects: { [p.id]: p } };
+}
+
+let store = loadStore();
+let state = store.projects[store.activeId];
+
+function saveStoreOnly() { localStorage.setItem(STORE_KEY, JSON.stringify(store)); }
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  state.updatedAt = new Date().toISOString();
+  saveStoreOnly();
+  refreshProjectBar();
+  updateGlobalProgress();
+}
+
+function projectList() {
+  return Object.values(store.projects).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+function switchProject(id) {
+  if (!store.projects[id]) return;
+  store.activeId = id;
+  state = store.projects[id];
+  saveStoreOnly();
+  refreshProjectBar();
+  updateGlobalProgress();
+}
+function createProject() {
+  const p = newProject("");
+  store.projects[p.id] = p;
+  switchProject(p.id);
+  return p;
+}
+function duplicateProject(id) {
+  const src = store.projects[id];
+  if (!src) return;
+  const copy = JSON.parse(JSON.stringify(src));
+  copy.id = genId();
+  copy.createdAt = new Date().toISOString();
+  copy.updatedAt = copy.createdAt;
+  copy.meta.nome = (src.meta.nome || "Sem nome") + " (cópia)";
+  copy.history = [];
+  store.projects[copy.id] = copy;
+  saveStoreOnly();
+  return copy;
+}
+function deleteProject(id) {
+  delete store.projects[id];
+  const remaining = Object.keys(store.projects);
+  if (!remaining.length) {
+    const p = newProject("");
+    store.projects[p.id] = p;
+    store.activeId = p.id;
+  } else if (store.activeId === id) {
+    store.activeId = remaining[0];
+  }
+  state = store.projects[store.activeId];
+  saveStoreOnly();
+  refreshProjectBar();
+  updateGlobalProgress();
+}
+
+function slugify(str) {
+  return (str || "avaliacao").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "avaliacao";
+}
+
+function exportProject(id) {
+  const proj = store.projects[id];
+  if (!proj) return;
+  const blob = new Blob([JSON.stringify(proj, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `trl-${slugify(proj.meta.nome)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function importProjectFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || typeof data !== "object" || typeof data.answers !== "object" || !data.meta) {
+        throw new Error("formato inválido");
+      }
+      const proj = { ...newProject(""), ...data, id: genId() };
+      proj.createdAt = new Date().toISOString();
+      proj.updatedAt = proj.createdAt;
+      if (!FRAMEWORKS[proj.frameworkId]) proj.frameworkId = "nasa";
+      store.projects[proj.id] = proj;
+      switchProject(proj.id);
+      showScreen("resultado");
+    } catch (e) {
+      alert("Não foi possível importar este arquivo — verifique se é um .json exportado por esta calculadora.");
+    }
+  };
+  reader.readAsText(file);
 }
 
 /* fw() = régua de maturidade ativa (NASA ou API) */
-function fw() { return FRAMEWORKS[state.frameworkId]; }
-function toDisplay(level) { return level + fw().offset; }
+function fw(proj = state) { return FRAMEWORKS[proj.frameworkId]; }
+function toDisplay(level, proj = state) { return level + fw(proj).offset; }
+function toDisplayFor(level, frameworkId) { return level + FRAMEWORKS[frameworkId].offset; }
 function levelDef(level) { return TRL_LEVELS.find(l => l.level === level); }
 
 /* Níveis internos navegáveis pela régua ativa (1..maxInternalLevel) */
-function frameworkLevels() { return TRL_LEVELS.filter(l => l.level <= fw().maxInternalLevel); }
-function levelPosition(level) { return frameworkLevels().findIndex(l => l.level === level) + 1; }
+function frameworkLevels(proj = state) { return TRL_LEVELS.filter(l => l.level <= fw(proj).maxInternalLevel); }
+function levelPosition(level, proj = state) { return frameworkLevels(proj).findIndex(l => l.level === level) + 1; }
 
 function getGroup(id) { return TRL_GROUPS.find(g => g.id === id); }
 /* Teto do grupo, já limitado ao alcance da régua ativa */
-function ceilingLevel() { return Math.min(getGroup(state.groupId).ceiling, fw().maxInternalLevel); }
-function groupLabel(g) {
-  return `TRL ${toDisplay(1)} a ${toDisplay(Math.min(g.ceiling, fw().maxInternalLevel))}`;
+function ceilingLevel(proj = state) { return Math.min(getGroup(proj.groupId).ceiling, fw(proj).maxInternalLevel); }
+function groupLabel(g, proj = state) {
+  return `TRL ${toDisplay(1, proj)} a ${toDisplay(Math.min(g.ceiling, fw(proj).maxInternalLevel), proj)}`;
 }
 
 function ensureAnswers(level) {
@@ -83,9 +205,9 @@ function ensureAnswers(level) {
 /* ---------------------------------------------------------------
  * Cálculo
  * --------------------------------------------------------------- */
-function computeLevel(level) {
+function computeLevel(level, proj = state) {
   const def = levelDef(level);
-  const answers = state.answers[level];
+  const answers = proj.answers[level];
   const totalCount = def.questions.length;
   if (!answers) {
     return { percent: 0, evidencedCount: 0, totalCount, mandatoryOk: false,
@@ -112,7 +234,7 @@ function computeLevel(level) {
 
   const percent = totalCount ? points / totalCount : 0;
   const mandatoryOk = mandatoryIssue === null;
-  const thresholdOk = percent >= state.tolerance;
+  const thresholdOk = percent >= proj.tolerance;
   const passTol = mandatoryOk && thresholdOk;
   const passIso = mandatoryOk;
 
@@ -127,19 +249,19 @@ function computeLevel(level) {
            passTol, passIso, status, canAdvance: status === "pass" };
 }
 
-function computeAll() {
-  const ceiling = ceilingLevel();
+function computeAll(proj = state) {
+  const ceiling = ceilingLevel(proj);
   const rows = [];
   let cumTol = true, cumIso = true;
   let finalTol = null, finalIso = null;
 
-  for (const def of frameworkLevels()) {
+  for (const def of frameworkLevels(proj)) {
     const inScope = def.level <= ceiling;
     if (!inScope) {
       rows.push({ level: def.level, percent: null, passTol: null, passIso: null, inScope: false });
       continue;
     }
-    const r = computeLevel(def.level);
+    const r = computeLevel(def.level, proj);
     cumTol = cumTol && r.passTol;
     cumIso = cumIso && r.passIso;
     if (cumTol) finalTol = def.level;
@@ -269,14 +391,76 @@ function evidenceChartHtml(data) {
 }
 
 /* ---------------------------------------------------------------
+ * Histórico de reavaliações (linha do tempo)
+ * --------------------------------------------------------------- */
+function recordSnapshot() {
+  const result = computeAll();
+  const day = new Date().toISOString().slice(0, 10);
+  const entry = { date: new Date().toISOString(), day, finalTol: result.finalTol,
+                   finalIso: result.finalIso, frameworkId: state.frameworkId };
+  const last = state.history[state.history.length - 1];
+  if (last && last.day === day) state.history[state.history.length - 1] = entry;
+  else state.history.push(entry);
+  saveState();
+  return entry;
+}
+
+function timelineHtml(history) {
+  const w = 560, h = 160, padL = 26, padR = 16, padT = 18, padB = 26;
+  const innerW = w - padL - padR, innerH = h - padT - padB;
+  const n = history.length;
+  const x = i => n <= 1 ? padL + innerW / 2 : padL + (innerW * i / (n - 1));
+  const y = v => padT + innerH - (v / 9) * innerH; // eixo fixo 0–9 (numeração interna)
+
+  const ptsTol = history.map((e, i) => `${x(i)},${y(e.finalTol)}`).join(" ");
+  const ptsIso = history.map((e, i) => `${x(i)},${y(e.finalIso)}`).join(" ");
+  const grid = [0, 3, 6, 9].map(v => `
+    <line x1="${padL}" y1="${y(v)}" x2="${w - padR}" y2="${y(v)}" stroke="var(--border)" stroke-width="1"></line>
+    <text x="2" y="${y(v) + 4}" font-size="10" fill="var(--text-faint)">${v}</text>`).join("");
+  const marks = history.map((e, i) => `
+    <circle cx="${x(i)}" cy="${y(e.finalTol)}" r="4" fill="#2f6fed"></circle>
+    <text x="${x(i)}" y="${y(e.finalTol) - 10}" font-size="11" text-anchor="middle" fill="var(--text)" font-weight="700">TRL ${toDisplayFor(e.finalTol, e.frameworkId)}</text>
+    <text x="${x(i)}" y="${h - 8}" font-size="10" text-anchor="middle" fill="var(--text-faint)">${new Date(e.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</text>`).join("");
+
+  const rows = history.slice().reverse().map(e => `
+    <tr><td>${new Date(e.date).toLocaleDateString("pt-BR")}</td>
+        <td class="tv">TRL ${toDisplayFor(e.finalTol, e.frameworkId)}</td>
+        <td class="tv">TRL ${toDisplayFor(e.finalIso, e.frameworkId)}</td></tr>`).join("");
+
+  return `
+    <div class="timeline-wrap">
+      <svg class="timeline-svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="Evolução do TRL ao longo do tempo">
+        ${grid}
+        <polyline points="${ptsIso}" fill="none" stroke="var(--text-faint)" stroke-width="2" stroke-dasharray="4 3"></polyline>
+        <polyline points="${ptsTol}" fill="none" stroke="#2f6fed" stroke-width="2.5"></polyline>
+        ${marks}
+      </svg>
+      <div class="timeline-table">
+        <table>
+          <thead><tr><th></th><th>Tolerância</th><th>Estrita</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+/* ---------------------------------------------------------------
  * Navegação entre telas
  * --------------------------------------------------------------- */
 function showScreen(name) {
+  if ((name === "avaliacao" || name === "resultado") && !state.meta.nome.trim()) {
+    name = "dados";
+    document.getElementById("dados-validation").hidden = false;
+    setTimeout(() => document.getElementById("inp-nome").focus(), 50);
+  }
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById("screen-" + name).classList.add("active");
   document.querySelectorAll("#stepper button").forEach(b => {
     b.classList.toggle("active", b.dataset.screen === name);
   });
+  document.body.classList.toggle("screen-projetos-active", name === "projetos");
+  if (name === "projetos") renderProjectsList();
+  if (name === "dados") renderDadosScreen();
   if (name === "avaliacao") renderLevel(state.currentLevel);
   if (name === "resultado") renderResultado();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -287,6 +471,65 @@ document.querySelectorAll("#stepper button").forEach(b => {
 });
 document.querySelectorAll("[data-goto]").forEach(b => {
   b.addEventListener("click", () => showScreen(b.dataset.goto));
+});
+
+/* ---------------------------------------------------------------
+ * Tela 0 · Minhas avaliações
+ * --------------------------------------------------------------- */
+function renderProjectsList() {
+  const wrap = document.getElementById("projects-list");
+  const list = projectList();
+  if (!list.length) {
+    wrap.innerHTML = `<div class="projects-empty">Nenhuma avaliação ainda.</div>`;
+    return;
+  }
+  wrap.innerHTML = "";
+  list.forEach(p => {
+    const result = computeAll(p);
+    const div = document.createElement("div");
+    div.className = "project-card" + (p.id === store.activeId ? " active" : "");
+    const updated = new Date(p.updatedAt);
+    div.innerHTML = `
+      <div class="pc-main">
+        <div class="pc-name">${escapeHtml(p.meta.nome || "Sem nome")}</div>
+        <div class="pc-meta">
+          <span>${escapeHtml(p.meta.resp || "sem responsável")}</span>
+          <span>·</span>
+          <span>Atualizado em ${updated.toLocaleDateString("pt-BR")}</span>
+        </div>
+      </div>
+      <div class="pc-badges">
+        <span class="trl-badge">TRL ${toDisplay(result.finalTol, p)}</span>
+        <span class="status-tag na">${FRAMEWORKS[p.frameworkId].shortLabel}</span>
+      </div>
+      <div class="pc-actions">
+        <button data-act="open">Abrir</button>
+        <button data-act="dup">Duplicar</button>
+        <button data-act="export">Exportar</button>
+        <button data-act="del" class="pc-danger">Excluir</button>
+      </div>`;
+    div.querySelector('[data-act=open]').addEventListener("click", () => { switchProject(p.id); showScreen("dados"); });
+    div.querySelector('[data-act=dup]').addEventListener("click", () => { duplicateProject(p.id); renderProjectsList(); });
+    div.querySelector('[data-act=export]').addEventListener("click", () => exportProject(p.id));
+    div.querySelector('[data-act=del]').addEventListener("click", () => {
+      if (confirm(`Excluir a avaliação "${p.meta.nome || "Sem nome"}"? Essa ação não pode ser desfeita.`)) {
+        deleteProject(p.id);
+        renderProjectsList();
+      }
+    });
+    wrap.appendChild(div);
+  });
+}
+
+document.getElementById("btn-new-project").addEventListener("click", () => {
+  createProject();
+  showScreen("dados");
+});
+document.getElementById("btn-import").addEventListener("click", () => document.getElementById("import-file").click());
+document.getElementById("import-file").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (file) importProjectFile(file);
+  e.target.value = "";
 });
 
 /* ---------------------------------------------------------------
@@ -329,7 +572,6 @@ function renderFrameworkOptions() {
       renderFrameworkOptions();
       renderGroupOptions();
       renderIsoRef();
-      updateTopbarBadge();
     });
     wrap.appendChild(div);
   });
@@ -360,15 +602,15 @@ function bindMetaInputs() {
   const nome = document.getElementById("inp-nome");
   const resp = document.getElementById("inp-resp");
   const data = document.getElementById("inp-data");
-  nome.value = state.meta.nome; resp.value = state.meta.resp; data.value = state.meta.data;
-  nome.addEventListener("input", () => { state.meta.nome = nome.value; saveState(); });
+  nome.addEventListener("input", () => {
+    state.meta.nome = nome.value; saveState();
+    if (nome.value.trim()) document.getElementById("dados-validation").hidden = true;
+  });
   resp.addEventListener("input", () => { state.meta.resp = resp.value; saveState(); });
   data.addEventListener("input", () => { state.meta.data = data.value; saveState(); });
 
   const tol = document.getElementById("inp-tolerancia");
   const tolOut = document.getElementById("tolerancia-out");
-  tol.value = state.tolerance;
-  tolOut.textContent = state.tolerance;
   tol.oninput = () => {
     state.tolerance = Number(tol.value);
     tolOut.textContent = state.tolerance;
@@ -376,7 +618,25 @@ function bindMetaInputs() {
   };
 }
 
-document.getElementById("btn-to-avaliacao").addEventListener("click", () => showScreen("avaliacao"));
+function renderDadosScreen() {
+  document.getElementById("inp-nome").value = state.meta.nome;
+  document.getElementById("inp-resp").value = state.meta.resp;
+  document.getElementById("inp-data").value = state.meta.data;
+  document.getElementById("inp-tolerancia").value = state.tolerance;
+  document.getElementById("tolerancia-out").textContent = state.tolerance;
+  document.getElementById("dados-validation").hidden = true;
+  renderFrameworkOptions();
+  renderGroupOptions();
+}
+
+document.getElementById("btn-to-avaliacao").addEventListener("click", () => {
+  if (!state.meta.nome.trim()) {
+    document.getElementById("dados-validation").hidden = false;
+    document.getElementById("inp-nome").focus();
+    return;
+  }
+  showScreen("avaliacao");
+});
 
 /* ---------------------------------------------------------------
  * Tela 3 · Avaliação
@@ -547,6 +807,14 @@ function renderResultado() {
   document.getElementById("res-table").querySelector("tbody").innerHTML = tableRowsHtml(result);
   document.getElementById("res-evidence").innerHTML = evidenceChartHtml(evidenceChartData());
   document.getElementById("res-nextsteps").innerHTML = nextStepsHtml(nextStepsData(result));
+
+  const historyCard = document.getElementById("res-history-card");
+  if (state.history.length) {
+    historyCard.hidden = false;
+    document.getElementById("res-history").innerHTML = timelineHtml(state.history);
+  } else {
+    historyCard.hidden = true;
+  }
 }
 
 function formatDate(iso) {
@@ -555,12 +823,15 @@ function formatDate(iso) {
   return d && m && y ? `${d}/${m}/${y}` : iso;
 }
 
-document.getElementById("btn-reset").addEventListener("click", () => {
-  if (confirm("Isso irá apagar todas as respostas da avaliação atual. Deseja continuar?")) {
-    localStorage.removeItem(STORAGE_KEY);
-    state = DEFAULT_STATE();
-    showScreen("inicio");
-    init();
+document.getElementById("btn-snapshot").addEventListener("click", () => {
+  recordSnapshot();
+  renderResultado();
+});
+document.getElementById("btn-export").addEventListener("click", () => exportProject(store.activeId));
+document.getElementById("btn-new-from-result").addEventListener("click", () => {
+  if (confirm('Iniciar uma nova avaliação? A avaliação atual continua salva em "Minhas avaliações".')) {
+    createProject();
+    showScreen("dados");
   }
 });
 
@@ -568,6 +839,7 @@ document.getElementById("btn-reset").addEventListener("click", () => {
  * Relatório imprimível
  * --------------------------------------------------------------- */
 document.getElementById("btn-report").addEventListener("click", () => {
+  recordSnapshot();
   buildReport();
   window.print();
 });
@@ -611,18 +883,37 @@ function escapeHtml(str) {
 }
 
 /* ---------------------------------------------------------------
- * Init
+ * Barra de projeto / progresso global
  * --------------------------------------------------------------- */
-function updateTopbarBadge() {
-  document.getElementById("topbar-metodologia").textContent = fw().shortLabel;
+function refreshProjectBar() {
+  document.getElementById("project-bar-name").textContent = state.meta.nome || "Sem nome";
+  document.getElementById("project-bar-meta").textContent =
+    `${fw().shortLabel} · grupo ${groupLabel(getGroup(state.groupId))} · tolerância ${state.tolerance}%`;
 }
 
+function updateGlobalProgress() {
+  const result = computeAll();
+  let total = 0, done = 0;
+  result.rows.forEach(row => {
+    if (!row.inScope) return;
+    const def = levelDef(row.level);
+    const answers = state.answers[row.level] || [];
+    total += def.questions.length;
+    done += answers.filter(a => a !== null && a !== undefined).length;
+  });
+  const pct = total ? (done / total * 100) : 0;
+  document.getElementById("global-progress-fill").style.width = pct + "%";
+}
+
+/* ---------------------------------------------------------------
+ * Init
+ * --------------------------------------------------------------- */
 function init() {
   renderIsoRef();
-  renderFrameworkOptions();
-  renderGroupOptions();
+  renderDadosScreen();
   bindMetaInputs();
-  updateTopbarBadge();
+  refreshProjectBar();
+  updateGlobalProgress();
   showScreen("inicio");
 }
 init();
