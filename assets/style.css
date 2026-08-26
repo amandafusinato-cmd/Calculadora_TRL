@@ -463,6 +463,19 @@ footer { text-align: center; color: var(--text-faint); font-size: 12.5px; paddin
 .timeline-table td { padding: 4px 10px 4px 0; color: var(--text-muted); }
 .timeline-table td.tv { font-weight: 700; color: var(--text); text-align: right; }
 
+/* ---------- Modal (confirmação / aviso) ---------- */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(11, 37, 69, .55); backdrop-filter: blur(1px);
+  display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px;
+}
+.modal-overlay[hidden] { display: none; }
+.modal-box {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 24px; max-width: 420px; width: 100%;
+}
+.modal-message { color: var(--text); font-size: 14.5px; line-height: 1.5; margin-bottom: 20px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
 /* ---------- Print / report ---------- */
 #report-root { display: none; }
 @media print {

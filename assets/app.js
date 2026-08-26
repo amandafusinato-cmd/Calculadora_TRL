@@ -30,6 +30,62 @@
 
 const STORE_KEY = "trl-calculadora-store-v1";
 
+/* ---------------------------------------------------------------
+ * Modal (confirmação / aviso) — substitui confirm()/alert() nativos,
+ * que ficam bloqueados/silenciosos dentro de iframes sandboxed (como
+ * a prévia de Artifact) e travam a página em vez de abrir um diálogo.
+ * --------------------------------------------------------------- */
+function showConfirm(message, { confirmLabel = "Confirmar", danger = true } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById("modal-overlay");
+    const confirmBtn = document.getElementById("modal-confirm");
+    const cancelBtn = document.getElementById("modal-cancel");
+    document.getElementById("modal-message").textContent = message;
+    confirmBtn.textContent = confirmLabel;
+    confirmBtn.className = "btn" + (danger ? " danger" : "");
+    cancelBtn.hidden = false;
+    overlay.hidden = false;
+
+    function cleanup(result) {
+      overlay.hidden = true;
+      confirmBtn.removeEventListener("click", onConfirm);
+      cancelBtn.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onOverlay);
+      resolve(result);
+    }
+    function onConfirm() { cleanup(true); }
+    function onCancel() { cleanup(false); }
+    function onOverlay(e) { if (e.target === overlay) cleanup(false); }
+    confirmBtn.addEventListener("click", onConfirm);
+    cancelBtn.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onOverlay);
+  });
+}
+
+function showAlert(message) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById("modal-overlay");
+    const confirmBtn = document.getElementById("modal-confirm");
+    const cancelBtn = document.getElementById("modal-cancel");
+    document.getElementById("modal-message").textContent = message;
+    confirmBtn.textContent = "OK";
+    confirmBtn.className = "btn";
+    cancelBtn.hidden = true;
+    overlay.hidden = false;
+
+    function cleanup() {
+      overlay.hidden = true;
+      confirmBtn.removeEventListener("click", onOk);
+      overlay.removeEventListener("click", onOverlay);
+      resolve();
+    }
+    function onOk() { cleanup(); }
+    function onOverlay(e) { if (e.target === overlay) cleanup(); }
+    confirmBtn.addEventListener("click", onOk);
+    overlay.addEventListener("click", onOverlay);
+  });
+}
+
 const ANSWER_VALUES = ["sim", "parcial", "nao"];
 const ANSWER_LABELS = { sim: "Sim", parcial: "Parcial", nao: "Não" };
 const ANSWER_POINTS = { sim: 100, parcial: 50, nao: 0 };
@@ -186,7 +242,7 @@ function importProjectFile(file) {
       switchProject(proj.id);
       showScreen("resultado");
     } catch (e) {
-      alert("Não foi possível importar este arquivo — verifique se é um .json exportado por esta calculadora.");
+      showAlert("Não foi possível importar este arquivo — verifique se é um .json exportado por esta calculadora.");
     }
   };
   reader.readAsText(file);
@@ -408,13 +464,18 @@ function evidenceChartHtml(data) {
 /* ---------------------------------------------------------------
  * Histórico de reavaliações (linha do tempo)
  * --------------------------------------------------------------- */
-function recordSnapshot() {
+/* force=true (clique explícito em "Registrar retrato") sempre cria um
+ * ponto novo — mesmo no mesmo dia, para permitir comparar várias
+ * versões avaliadas na mesma sessão. force=false (disparado
+ * automaticamente ao gerar o relatório) atualiza o retrato do dia em
+ * vez de duplicar, para não encher o histórico de reimpressões. */
+function recordSnapshot(force = true) {
   const result = computeAll();
   const day = new Date().toISOString().slice(0, 10);
   const entry = { date: new Date().toISOString(), day, finalTol: result.finalTol,
                    finalIso: result.finalIso, frameworkId: state.frameworkId };
   const last = state.history[state.history.length - 1];
-  if (last && last.day === day) state.history[state.history.length - 1] = entry;
+  if (!force && last && last.day === day) state.history[state.history.length - 1] = entry;
   else state.history.push(entry);
   saveState();
   return entry;
@@ -526,8 +587,9 @@ function renderProjectsList() {
     div.querySelector('[data-act=open]').addEventListener("click", () => { switchProject(p.id); showScreen("dados"); });
     div.querySelector('[data-act=dup]').addEventListener("click", () => { duplicateProject(p.id); renderProjectsList(); });
     div.querySelector('[data-act=export]').addEventListener("click", () => exportProject(p.id));
-    div.querySelector('[data-act=del]').addEventListener("click", () => {
-      if (confirm(`Excluir a avaliação "${p.meta.nome || "Sem nome"}"? Essa ação não pode ser desfeita.`)) {
+    div.querySelector('[data-act=del]').addEventListener("click", async () => {
+      const ok = await showConfirm(`Excluir a avaliação "${p.meta.nome || "Sem nome"}"? Essa ação não pode ser desfeita.`, { confirmLabel: "Excluir" });
+      if (ok) {
         deleteProject(p.id);
         renderProjectsList();
       }
@@ -843,8 +905,9 @@ document.getElementById("btn-snapshot").addEventListener("click", () => {
   renderResultado();
 });
 document.getElementById("btn-export").addEventListener("click", () => exportProject(store.activeId));
-document.getElementById("btn-new-from-result").addEventListener("click", () => {
-  if (confirm('Iniciar uma nova avaliação? A avaliação atual continua salva em "Minhas avaliações".')) {
+document.getElementById("btn-new-from-result").addEventListener("click", async () => {
+  const ok = await showConfirm('Iniciar uma nova avaliação? A avaliação atual continua salva em "Minhas avaliações".', { confirmLabel: "Nova avaliação", danger: false });
+  if (ok) {
     createProject();
     showScreen("dados");
   }
@@ -854,7 +917,7 @@ document.getElementById("btn-new-from-result").addEventListener("click", () => {
  * Relatório imprimível
  * --------------------------------------------------------------- */
 document.getElementById("btn-report").addEventListener("click", () => {
-  recordSnapshot();
+  recordSnapshot(false); // atualiza o retrato do dia em vez de duplicar a cada impressão
   buildReport();
   window.print();
 });
