@@ -141,14 +141,29 @@ function slugify(str) {
     .replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "avaliacao";
 }
 
-function exportProject(id) {
+async function exportProject(id) {
   const proj = store.projects[id];
   if (!proj) return;
-  const blob = new Blob([JSON.stringify(proj, null, 2)], { type: "application/json" });
+  const filename = `trl-${slugify(proj.meta.nome)}.json`;
+  const json = JSON.stringify(proj, null, 2);
+
+  // Em um viewer de Artifact (sandboxed), um <a download> comum não
+  // funciona — usa a capability "downloads" quando disponível.
+  if (window.claude && window.claude.use) {
+    try {
+      const downloads = await window.claude.use("downloads");
+      if (downloads) {
+        await downloads.save({ filename, data: json });
+        return;
+      }
+    } catch (e) { /* recusado/indisponível — cai para o download comum abaixo */ }
+  }
+
+  const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `trl-${slugify(proj.meta.nome)}.json`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
