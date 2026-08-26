@@ -464,24 +464,30 @@ function evidenceChartHtml(data) {
 /* ---------------------------------------------------------------
  * Histórico de reavaliações (linha do tempo)
  * --------------------------------------------------------------- */
-/* force=true (clique explícito em "Registrar retrato") sempre cria um
- * ponto novo — mesmo no mesmo dia, para permitir comparar várias
- * versões avaliadas na mesma sessão. force=false (disparado
- * automaticamente ao gerar o relatório) atualiza o retrato do dia em
- * vez de duplicar, para não encher o histórico de reimpressões. */
-function recordSnapshot(force = true) {
+/* A chave de deduplicação do retrato é a "Data da avaliação" (campo em
+ * Dados) — não a data real do clique. Registrar de novo NO MESMO DIA
+ * DE AVALIAÇÃO atualiza aquele retrato em vez de duplicar; para
+ * registrar vários pontos (ex.: simular versões TRL1 e TRL2), basta
+ * trocar a data da avaliação entre um retrato e outro. Sem data
+ * preenchida, cai no dia corrente como antes. */
+function recordSnapshot() {
   const result = computeAll();
-  const day = new Date().toISOString().slice(0, 10);
-  const entry = { date: new Date().toISOString(), day, finalTol: result.finalTol,
-                   finalIso: result.finalIso, frameworkId: state.frameworkId };
-  const last = state.history[state.history.length - 1];
-  if (!force && last && last.day === day) state.history[state.history.length - 1] = entry;
+  const day = state.meta.data || new Date().toISOString().slice(0, 10);
+  const entry = { day, finalTol: result.finalTol, finalIso: result.finalIso, frameworkId: state.frameworkId };
+  const idx = state.history.findIndex(h => h.day === day);
+  if (idx >= 0) state.history[idx] = entry;
   else state.history.push(entry);
   saveState();
   return entry;
 }
 
-function timelineHtml(history) {
+function shortDate(day) {
+  const [, m, d] = day.split("-");
+  return `${d}/${m}`;
+}
+
+function timelineHtml(historyUnsorted) {
+  const history = [...historyUnsorted].sort((a, b) => a.day.localeCompare(b.day));
   const w = 560, h = 160, padL = 26, padR = 16, padT = 18, padB = 26;
   const innerW = w - padL - padR, innerH = h - padT - padB;
   const n = history.length;
@@ -496,10 +502,10 @@ function timelineHtml(history) {
   const marks = history.map((e, i) => `
     <circle cx="${x(i)}" cy="${y(e.finalTol)}" r="4" fill="#2f6fed"></circle>
     <text x="${x(i)}" y="${y(e.finalTol) - 10}" font-size="11" text-anchor="middle" fill="var(--text)" font-weight="700">TRL ${toDisplayFor(e.finalTol, e.frameworkId)}</text>
-    <text x="${x(i)}" y="${h - 8}" font-size="10" text-anchor="middle" fill="var(--text-faint)">${new Date(e.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</text>`).join("");
+    <text x="${x(i)}" y="${h - 8}" font-size="10" text-anchor="middle" fill="var(--text-faint)">${shortDate(e.day)}</text>`).join("");
 
   const rows = history.slice().reverse().map(e => `
-    <tr><td>${new Date(e.date).toLocaleDateString("pt-BR")}</td>
+    <tr><td>${formatDate(e.day)}</td>
         <td class="tv">TRL ${toDisplayFor(e.finalTol, e.frameworkId)}</td>
         <td class="tv">TRL ${toDisplayFor(e.finalIso, e.frameworkId)}</td></tr>`).join("");
 
@@ -917,7 +923,7 @@ document.getElementById("btn-new-from-result").addEventListener("click", async (
  * Relatório imprimível
  * --------------------------------------------------------------- */
 document.getElementById("btn-report").addEventListener("click", () => {
-  recordSnapshot(false); // atualiza o retrato do dia em vez de duplicar a cada impressão
+  recordSnapshot();
   buildReport();
   window.print();
 });

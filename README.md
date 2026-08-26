@@ -36,10 +36,14 @@ mais um botão que apaga tudo.
 ## Histórico de reavaliações
 
 Na tela de resultado, o botão **"📌 Registrar retrato"** grava um ponto no histórico
-daquela avaliação (data + TRL com tolerância + TRL leitura estrita). Reavaliações no mesmo
-dia atualizam o retrato daquele dia em vez de duplicar. A partir do segundo retrato, um
-gráfico de linha (mais uma tabela) mostra a evolução do TRL ao longo do tempo. Gerar o
-relatório também registra um retrato automaticamente.
+daquela avaliação (TRL com tolerância + TRL leitura estrita), usando a **"Data da
+avaliação"** preenchida em "Dados" como chave — não a data real do clique. Registrar de
+novo com a mesma data da avaliação atualiza aquele retrato em vez de duplicar; para
+guardar mais de um ponto (por exemplo, comparar uma versão TRL1 e uma versão TRL2),
+troque a data da avaliação entre um retrato e outro. Sem data preenchida, cai no dia
+corrente. A partir do segundo retrato, um gráfico de linha (mais uma tabela, ordenados
+pela data da avaliação) mostra a evolução do TRL ao longo do tempo. Gerar o relatório
+também registra um retrato automaticamente, com a mesma regra.
 
 ## Metodologia
 
