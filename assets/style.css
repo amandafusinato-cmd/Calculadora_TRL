@@ -478,12 +478,24 @@ footer { text-align: center; color: var(--text-faint); font-size: 12.5px; paddin
 
 /* ---------- Print / report ---------- */
 #report-root { display: none; }
+/* Pré-visualização em tela: sobreposição com o relatório em uma
+   "folha" flutuante, independente do @media print (útil onde
+   window.print() é bloqueado, como dentro do sandbox de um Artifact). */
+#report-root:not([hidden]) {
+  display: block; position: fixed; inset: 0; z-index: 200; overflow-y: auto;
+  background: rgba(11, 37, 69, .65); padding: 32px 16px 60px;
+}
+#report-root:not([hidden]) .report-page {
+  box-shadow: 0 20px 60px rgba(0,0,0,.35); border-radius: 10px;
+}
+.report-preview-bar { max-width: 820px; margin: 0 auto 14px; display: flex; justify-content: flex-end; gap: 10px; }
 @media print {
   .topbar, .btn-row, .level-tabs, .no-print { display: none !important; }
   body { background: white; }
   main { max-width: none; padding: 0; }
   .screen { display: none !important; }
-  #report-root { display: block !important; }
+  #report-root { display: block !important; position: static !important; background: none !important; padding: 0 !important; }
+  #report-root .report-page { box-shadow: none !important; border-radius: 0 !important; }
 }
 .report-page { max-width: 820px; margin: 0 auto; background: white; padding: 10px 4px; }
 .report-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid var(--blue-900); padding-bottom: 14px; margin-bottom: 18px; }

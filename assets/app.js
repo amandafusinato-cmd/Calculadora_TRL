@@ -197,25 +197,21 @@ function slugify(str) {
     .replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "avaliacao";
 }
 
-async function exportProject(id) {
-  const proj = store.projects[id];
-  if (!proj) return;
-  const filename = `trl-${slugify(proj.meta.nome)}.json`;
-  const json = JSON.stringify(proj, null, 2);
-
-  // Em um viewer de Artifact (sandboxed), um <a download> comum não
-  // funciona — usa a capability "downloads" quando disponível.
+/* Baixa `data` (string) como `filename`. Em um viewer de Artifact
+ * (sandboxed), um <a download> comum não funciona — usa a capability
+ * "downloads" quando disponível, com fallback para o download comum
+ * (o que sempre acontece no site publicado normalmente). */
+async function saveFile(filename, data) {
   if (window.claude && window.claude.use) {
     try {
       const downloads = await window.claude.use("downloads");
       if (downloads) {
-        await downloads.save({ filename, data: json });
+        await downloads.save({ filename, data });
         return;
       }
     } catch (e) { /* recusado/indisponível — cai para o download comum abaixo */ }
   }
-
-  const blob = new Blob([json], { type: "application/json" });
+  const blob = new Blob([data], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -226,19 +222,62 @@ async function exportProject(id) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+function exportProject(id) {
+  const proj = store.projects[id];
+  if (!proj) return;
+  saveFile(`trl-${slugify(proj.meta.nome)}.json`, JSON.stringify(proj, null, 2));
+}
+
+const BACKUP_TYPE = "trl-calculadora-backup";
+
+function exportAllProjects() {
+  const backup = {
+    type: BACKUP_TYPE,
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    projects: Object.values(store.projects)
+  };
+  const filename = `trl-backup-todas-avaliacoes-${new Date().toISOString().slice(0, 10)}.json`;
+  saveFile(filename, JSON.stringify(backup, null, 2));
+}
+
+function isValidProjectShape(p) {
+  return !!p && typeof p === "object" && typeof p.answers === "object" && !!p.meta;
+}
+
+function importAsNewProject(data) {
+  const proj = { ...newProject(""), ...data, id: genId() };
+  proj.createdAt = new Date().toISOString();
+  proj.updatedAt = proj.createdAt;
+  if (!FRAMEWORKS[proj.frameworkId]) proj.frameworkId = "nasa";
+  store.projects[proj.id] = proj;
+  return proj;
+}
+
 function importProjectFile(file) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
       const data = JSON.parse(reader.result);
-      if (!data || typeof data !== "object" || typeof data.answers !== "object" || !data.meta) {
-        throw new Error("formato inválido");
+
+      // Backup completo (várias avaliações num arquivo só)
+      if (data && data.type === BACKUP_TYPE && Array.isArray(data.projects)) {
+        const validProjects = data.projects.filter(isValidProjectShape);
+        if (!validProjects.length) throw new Error("backup vazio ou inválido");
+        let firstId = null;
+        validProjects.forEach(p => {
+          const proj = importAsNewProject(p);
+          if (!firstId) firstId = proj.id;
+        });
+        saveStoreOnly();
+        switchProject(firstId);
+        showScreen("projetos");
+        return;
       }
-      const proj = { ...newProject(""), ...data, id: genId() };
-      proj.createdAt = new Date().toISOString();
-      proj.updatedAt = proj.createdAt;
-      if (!FRAMEWORKS[proj.frameworkId]) proj.frameworkId = "nasa";
-      store.projects[proj.id] = proj;
+
+      // Avaliação única
+      if (!isValidProjectShape(data)) throw new Error("formato inválido");
+      const proj = importAsNewProject(data);
       switchProject(proj.id);
       showScreen("resultado");
     } catch (e) {
@@ -558,11 +597,20 @@ document.querySelectorAll("[data-goto]").forEach(b => {
 /* ---------------------------------------------------------------
  * Tela 0 · Minhas avaliações
  * --------------------------------------------------------------- */
+let projectsSearchTerm = "";
+
 function renderProjectsList() {
   const wrap = document.getElementById("projects-list");
-  const list = projectList();
-  if (!list.length) {
+  const all = projectList();
+  const term = projectsSearchTerm.trim().toLowerCase();
+  const list = term ? all.filter(p => (p.meta.nome || "").toLowerCase().includes(term)) : all;
+
+  if (!all.length) {
     wrap.innerHTML = `<div class="projects-empty">Nenhuma avaliação ainda.</div>`;
+    return;
+  }
+  if (!list.length) {
+    wrap.innerHTML = `<div class="projects-empty">Nenhuma avaliação encontrada para "${escapeHtml(projectsSearchTerm.trim())}".</div>`;
     return;
   }
   wrap.innerHTML = "";
@@ -613,6 +661,11 @@ document.getElementById("import-file").addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (file) importProjectFile(file);
   e.target.value = "";
+});
+document.getElementById("btn-export-all").addEventListener("click", () => exportAllProjects());
+document.getElementById("projects-search").addEventListener("input", (e) => {
+  projectsSearchTerm = e.target.value;
+  renderProjectsList();
 });
 
 /* ---------------------------------------------------------------
@@ -926,6 +979,28 @@ document.getElementById("btn-report").addEventListener("click", () => {
   recordSnapshot();
   buildReport();
   window.print();
+});
+
+/* "Visualizar relatório" mostra o mesmo conteúdo em tela, como
+ * alternativa a imprimir — útil em qualquer navegador, e essencial
+ * onde window.print() está bloqueado (ex.: dentro do sandbox de uma
+ * prévia de Artifact, que trata print() como um diálogo modal). */
+function openReportPreview() {
+  recordSnapshot();
+  buildReport();
+  document.getElementById("report-root").hidden = false;
+}
+function closeReportPreview() {
+  document.getElementById("report-root").hidden = true;
+}
+document.getElementById("btn-report-preview").addEventListener("click", openReportPreview);
+document.getElementById("report-close").addEventListener("click", closeReportPreview);
+document.getElementById("report-print-from-preview").addEventListener("click", () => window.print());
+document.getElementById("report-root").addEventListener("click", (e) => {
+  if (e.target.id === "report-root") closeReportPreview();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !document.getElementById("report-root").hidden) closeReportPreview();
 });
 
 function buildReport() {

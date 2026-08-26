@@ -20,18 +20,30 @@ dado é enviado a um servidor.
 ## Múltiplas avaliações (Minhas avaliações)
 
 A calculadora guarda mais de uma avaliação ao mesmo tempo — uma por tecnologia. A tela
-**"📁 Avaliações"** lista todas, com o TRL atual de cada uma, e permite:
+**"📁 Avaliações"** lista todas, com um campo de busca por nome, o TRL atual de cada uma,
+e permite:
 
 - **Abrir** — continuar uma avaliação existente;
 - **Duplicar** — criar uma cópia (útil para reavaliar a mesma tecnologia mais tarde sem
   perder o histórico da avaliação original);
-- **Exportar (.json)** — baixa a avaliação inteira como arquivo, para backup, para levar a
+- **Exportar (.json)** — baixa aquela avaliação como arquivo, para backup, para levar a
   outro computador, ou para enviar a um colega revisar;
 - **Importar (.json)** — carrega um arquivo exportado como uma nova avaliação;
 - **Excluir**.
 
+**"📦 Exportar tudo"** baixa todas as avaliações salvas num único arquivo (backup geral);
+importar esse mesmo arquivo de volta (pelo botão "Importar") restaura todas de uma vez,
+cada uma como uma avaliação nova (não sobrescreve nada que já exista).
+
 "+ Nova avaliação" sempre cria uma avaliação em branco e preserva as demais — não existe
 mais um botão que apaga tudo.
+
+> Nota sobre acesso multiusuário: hoje isso tudo é local ao navegador de cada pessoa —
+> não existe conta, login nem servidor, então ninguém enxerga a avaliação de mais
+> ninguém (nem entre os próprios dispositivos da mesma pessoa, a não ser via exportar/
+> importar). Um painel único mostrando o TRL de todos os projetos da instituição
+> exigiria um backend real com autenticação e permissões — fora do escopo deste site
+> estático como está hoje.
 
 ## Histórico de reavaliações
 
@@ -137,10 +149,20 @@ avaliações" lista e o que os botões Exportar/Importar leem e escrevem, um pro
 
 ## Relatório
 
-Na tela de resultado, o botão **"Gerar relatório"** monta uma versão formatada, no estilo de
-relatórios institucionais de calculadoras de TRL (como o modelo usado pela vitrine
-tecnológica da UFRGS), e aciona a impressão do navegador — o usuário pode imprimir em papel
-ou salvar como PDF diretamente pelo diálogo de impressão. O relatório traz:
+Na tela de resultado, o botão **"🖨️ Gerar relatório"** monta uma versão formatada, no
+estilo de relatórios institucionais de calculadoras de TRL (como o modelo usado pela
+vitrine tecnológica da UFRGS), e aciona a impressão do navegador — salvar como PDF é uma
+das opções de destino desse diálogo de impressão, não um download direto.
+
+**"👁️ Visualizar relatório"** mostra o mesmo conteúdo em tela, dentro de uma janela
+sobreposta (com botões para fechar ou imprimir a partir dali). Serve como pré-visualização
+em qualquer navegador, e é a alternativa quando `window.print()` está bloqueado — como
+acontece dentro do sandbox de uma prévia de Artifact, que trata o diálogo de impressão
+como um modal e o impede de abrir (sem contornar isso, ao contrário do que foi possível
+para exportar arquivo — não existe uma capability de impressão). No site publicado
+normalmente, fora desse sandbox, o botão de imprimir funciona sem essa limitação.
+
+O relatório traz:
 
 - Identificação (tecnologia, responsável, data, metodologia utilizada);
 - Resultado com tolerância x leitura estrita, e a escada de maturidade;

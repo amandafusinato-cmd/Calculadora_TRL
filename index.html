@@ -49,8 +49,12 @@
         <div class="projects-actions">
           <button class="btn secondary" id="btn-import">📥 Importar (.json)</button>
           <input type="file" id="import-file" accept="application/json" hidden>
+          <button class="btn secondary" id="btn-export-all">📦 Exportar tudo</button>
           <button class="btn" id="btn-new-project">+ Nova avaliação</button>
         </div>
+      </div>
+      <div class="field" style="max-width:320px">
+        <input type="text" id="projects-search" placeholder="🔎 Buscar por nome da tecnologia…">
       </div>
       <div id="projects-list"></div>
     </div>
@@ -263,6 +267,7 @@
       <div style="display:flex; gap:10px; flex-wrap:wrap">
         <button class="btn secondary" id="btn-snapshot">📌 Registrar retrato</button>
         <button class="btn secondary" id="btn-export">📤 Exportar (.json)</button>
+        <button class="btn secondary" id="btn-report-preview">👁️ Visualizar relatório</button>
         <button class="btn" id="btn-report">🖨️ Gerar relatório</button>
       </div>
     </div>
@@ -280,7 +285,11 @@
 </footer>
 
 <!-- ===================== RELATÓRIO IMPRIMÍVEL ===================== -->
-<div id="report-root">
+<div id="report-root" hidden>
+  <div class="report-preview-bar no-print">
+    <button type="button" class="btn secondary" id="report-close">✕ Fechar</button>
+    <button type="button" class="btn" id="report-print-from-preview">🖨️ Imprimir / Salvar PDF</button>
+  </div>
   <div class="report-page">
     <div class="report-head">
       <div>
