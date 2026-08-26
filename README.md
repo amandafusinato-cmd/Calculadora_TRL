@@ -66,22 +66,26 @@ nível só conta como atingido se todos os níveis anteriores também tiverem si
 
 ## Múltiplas réguas de maturidade
 
-A calculadora não está presa à régua da NASA. Na tela "Dados" é possível trocar de
-metodologia — cada uma define seus próprios níveis, agrupamentos e critérios, e as
-respostas de cada uma ficam salvas separadamente (trocar de régua não apaga o que já foi
-preenchido em outra):
+A calculadora não está presa à régua da NASA — mas, ao contrário de uma primeira versão
+desta ideia, isso **não** significa ter um checklist separado por régua. Existe uma única
+avaliação (um único banco de critérios ★ obrigatórios + adicionais, numerado
+internamente de 1 a 9 na convenção NASA/ISO). A régua escolhida em "Dados" só controla
+**como esse mesmo nível é numerado** e até onde ele é navegável — trocar de régua não
+duplica nem apaga respostas, porque é a mesma avaliação, apenas relabelada:
 
-- **NASA / ISO 16290** (padrão) — 9 níveis (TRL 1–9), com checklist detalhado de
-  critérios ★ obrigatórios (NBR ISO 16290:2015) e adicionais (ROCHA, D. 2016).
-- **API 17N (Subsea)** — 8 níveis (TRL 0–7), escala do American Petroleum Institute
-  (Recommended Practice 17N, 2009) para tecnologia subsea, amplamente usada na indústria
-  de óleo & gás. Cada nível tem uma única condição de atingimento (tratada como critério
-  ★), conforme a "API 17 Technology Readiness Level Ladder" (fonte: API RP 17N;
-  referência da escada: Astrimar) — essa régua não publica um checklist detalhado de
-  subcritérios como a ISO 16290, por isso não foram inventados critérios adicionais.
+- **NASA / ISO 16290** (padrão) — numeração nativa, TRL 1 a 9.
+- **API 17N (Subsea)** — numeração da indústria de óleo & gás (American Petroleum
+  Institute, Recommended Practice 17N, 2009), TRL 0 a 7. A correspondência entre as duas
+  é um deslocamento fixo de 1 nível — **TRL(API) = TRL(NASA) − 1** — conforme o diagrama
+  comparativo padrão da indústria (TRL genérico × API 17N Technology Readiness Level). O
+  TRL 9 (NASA) fica de fora quando a régua API está ativa, pois essa régua termina no
+  TRL 7; os critérios desse nível continuam salvos e reaparecem ao voltar para a régua
+  NASA.
 
-Novas réguas podem ser adicionadas em `assets/questions.js`, no registro `FRAMEWORKS`,
-sem alterar a lógica de cálculo em `app.js` (que é genérica para qualquer framework).
+Esse "de-para" está definido em `assets/questions.js`, no registro `FRAMEWORKS`, como um
+único número (`offset`) por régua — para adicionar uma nova régua com a mesma numeração
+deslocada, basta um novo item nesse registro, sem duplicar o checklist nem alterar a
+lógica de cálculo em `app.js`.
 
 > MRL (Manufacturing Readiness Level) e IRL (Integration Readiness Level), mencionados no
 > aviso metodológico do relatório, são métricas complementares — avaliam dimensões
